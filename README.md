@@ -6,16 +6,16 @@
 
 ## 下载与安装
 
-在本仓库 Releases 下载 `dsh-media-workbench-0.5.1.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。v0.5.1 支持直接下拉修改选题状态，选择已排期须确认日期时间；新增或调整排期自动变为已排期。选题详情可以添加发布链接或关联已有未归属发布记录，统一进入数据采集与监控。
+在本仓库 Releases 下载 `dsh-media-workbench-0.5.2.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。v0.5.2 支持直接下拉修改选题状态，选择已排期须确认日期时间；新增或调整排期自动变为已排期。选题详情可以添加发布链接或关联已有未归属发布记录，统一进入数据采集与监控。
 
 v0.2.0 将选题、达人、Campaign 和发布数据整理为紧凑表格。选题输入名称后回车创建，点击名称打开详情；发布数据可筛选官方或达人内容。数据监控支持勾选多条发布记录，以折线图或分组柱状图比较各平台的 24h、72h 和至今数据。至今取最近一次快照，缺失数据保持为空。
 
 仓库为私有。请先登录有权限的 GitHub 账号下载，DSH 不能直接匿名获取私有仓库或 Release 链接。可在终端执行：
 
 ```sh
-gh release download v0.5.1 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
+gh release download v0.5.2 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
 mkdir dsh-media-workbench-install
-tar -xzf dsh-media-workbench-0.5.1.tgz -C dsh-media-workbench-install --strip-components=1
+tar -xzf dsh-media-workbench-0.5.2.tgz -C dsh-media-workbench-install --strip-components=1
 ```
 
 然后在 DSH 中让 Agent **通过插件管理流程安装并启用这个解压目录**，提供它的绝对路径。也可克隆本仓库后提供仓库根目录。安装结束按宿主提示重载；侧栏应出现「内容运营」。仅复制到 plugins 目录不会自动启用。不要直接改写正在使用的 generation。
@@ -28,7 +28,7 @@ tar -xzf dsh-media-workbench-0.5.1.tgz -C dsh-media-workbench-install --strip-co
 
 修复页查询 npm 返回 404 表示本插件未在 npm 发布，请从 GitHub 或本地源码更新。
 
-v0.5.1 优先直接读取 B站、小红书指标和实际发布时间，自动留存 24h / 72h，并每 5 分钟刷新当前快照。浏览器仅作备用。保存当前输入并重启 Desktop 后生效。
+v0.5.2 优先直接读取 B站、小红书指标和实际发布时间，自动留存 24h / 72h，并每 5 分钟刷新当前快照。浏览器仅作备用。保存当前输入并重启 Desktop 后生效。
 
 ## 会话内采集
 
@@ -62,3 +62,7 @@ npm run pack:plugin
 ### 达人表格与 CSV 导入
 
 达人池支持直接输入名称和平台添加行，或通过“导入表格”上传 CSV/TSV。支持 UTF-8、带 BOM 的 UTF-16 和 GB18030 文件；选文件自动预览，可手动对应字段并下载模板。复杂报价、非精确粉丝说明和额外列保留为备注，空白字段不覆盖已有资料。有错误的记录会标明位置，修正后再整批导入。
+
+### 直接导入达人
+
+选择 CSV 文件后自动批量保存，粘贴表格也可自动导入，无需预览或逐行确认。多平台行优先使用所选主要平台（若未列出，则使用首个可识别平台），完整说明保留在备注；未识别平台使用所选平台并保留原文。完成后显示读取、新增、合并和跳过数量，处理说明可展开查看。缺少名称或列结构错误的行单独报告，其余有效行先导入。

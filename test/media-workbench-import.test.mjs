@@ -39,3 +39,14 @@ it('keeps accepted Douyin alternate-domain account identities',()=>{
  expect(errors).toEqual([]);expect(rows[0].accountUrl).toBe('http://www.iesdouyin.com/share/user/123')
  let state=applyMutation(createEmptyState(),{action:'importCreators',rows});state=applyMutation(state,{action:'importCreators',rows});expect(state.creators).toHaveLength(1)
 })
+
+it('automatically accepts multi-platform rows and preserves their original platform description',()=>{
+ const result=parseCreators('名称,平台,粉丝量,报价\n甲,B站、抖音、视频号,b1.4w,定制1500起\n乙,抖音/小红书,,\n丙,待确认,,','bilibili',undefined,{lenient:true})
+ expect(result.errors).toEqual([]);expect(result.rows).toHaveLength(3)
+ expect(result.rows[0]).toMatchObject({platform:'bilibili'});expect(result.rows[0].notes).toContain('B站、抖音、视频号');expect(result.rows[0].notes).toContain('b1.4w')
+ expect(result.rows[1].platform).toBe('douyin');expect(result.rows[2].notes).toContain('待确认')
+})
+it('keeps valid rows available when another row is missing its identity',()=>{
+ const result=parseCreators('名称,平台\n甲,B站\n,抖音','bilibili',undefined,{lenient:true})
+ expect(result.rows).toHaveLength(1);expect(result.errors).toHaveLength(1)
+})

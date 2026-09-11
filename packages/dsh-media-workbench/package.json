@@ -1,6 +1,6 @@
 {
   "name": "dsh-media-workbench",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "type": "module",
   "description": "自媒体工作台：选题、达人、Campaign、排期、数据与会话",
   "main": "./index.mjs",

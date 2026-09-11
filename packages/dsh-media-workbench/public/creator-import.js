@@ -25,7 +25,7 @@ export function decodeCreatorFile(buffer){const bytes=new Uint8Array(buffer);if(
 export function creatorMapping(headers){return Object.fromEntries(Object.entries(creatorFields).map(([field,aliases])=>[field,headers.findIndex(h=>aliases.map(key).includes(key(h)))]))}
 const platforms={bilibili:'bilibili','b站':'bilibili','哔哩哔哩':'bilibili',douyin:'douyin','抖音':'douyin',xiaohongshu:'xiaohongshu','小红书':'xiaohongshu',weixin_channels:'weixin_channels','视频号':'weixin_channels','微信视频号':'weixin_channels',weixin_article:'weixin_article','微信公众号':'weixin_article','公众号':'weixin_article'}
 function numeric(value){if(!value||/^(未知|暂无|不详|待定|—|-|n\/a)$/i.test(value))return null;const match=value.replace(/[,，¥￥元\s]/g,'').match(/^(\d+(?:\.\d+)?)(万|[wW]|千|[kK])?$/);return match?Number(match[1])*({万:10000,w:10000,W:10000,千:1000,k:1000,K:1000}[match[2]]||1):null}
-export function parseCreators(text,defaultPlatform='bilibili',mapping){
+export function parseCreators(text,defaultPlatform='bilibili',mapping,{lenient=false}={}){
  const [headers,...raw]=parseDelimited(text);if(!headers||!raw.length)throw new Error('请提供表头和至少一行达人数据')
  const indices=mapping||creatorMapping(headers);if(!(indices.name>=0))throw new Error('未找到达人名称列，请在字段对应关系中选择名称列')
  const rows=[],errors=[],warnings=[]
@@ -33,7 +33,12 @@ export function parseCreators(text,defaultPlatform='bilibili',mapping){
   const line=i+2,row={},notes=[],used=new Set();if(cells.length!==headers.length){errors.push(`第 ${line} 行有 ${cells.length} 列，表头有 ${headers.length} 列；含逗号的文字需用双引号包围`);return}
   for(const [field,index]of Object.entries(indices)){if(index>=0){used.add(Number(index));const value=clean(cells[index]);if(value)row[field]=value}}
   if(!row.name){errors.push(`第 ${line} 行缺少达人名称`);return}
-  const platformValue=row.platform||defaultPlatform;row.platform=platforms[key(platformValue)];if(!row.platform){errors.push(`第 ${line} 行平台「${platformValue}」无法识别，请将多平台账号分行填写`);return}
+  const platformValue=row.platform||defaultPlatform;row.platform=platforms[key(platformValue)];if(!row.platform){
+   if(!lenient){errors.push(`第 ${line} 行平台「${platformValue}」无法识别，请将多平台账号分行填写`);return}
+   const candidates=String(platformValue).split(/[、,，/;；|＋+\s]+/).map(v=>platforms[key(v)]).filter(Boolean),fallback=platforms[key(defaultPlatform)]||'bilibili'
+   row.platform=candidates.includes(fallback)?fallback:candidates[0]||fallback
+   notes.push(`平台原文：${platformValue}`);warnings.push(`第 ${line} 行已选择主要平台，完整平台说明保留在备注`)
+  }
   for(const field of ['followers','quote']){if(!(field in row))continue;const original=row[field],value=numeric(original);if(value===null){delete row[field];notes.push(`${field==='followers'?'粉丝量':'报价'}：${original}`);warnings.push(`第 ${line} 行的${field==='followers'?'粉丝量':'报价'}保留在备注，未写入数值列`)}else row[field]=value}
   if(row.accountUrl){try{const url=new URL(row.accountUrl);if(!['http:','https:'].includes(url.protocol)||url.username||url.password)throw Error();const allowed={bilibili:['bilibili.com','b23.tv'],douyin:['douyin.com','iesdouyin.com'],xiaohongshu:['xiaohongshu.com','xhslink.com'],weixin_channels:['weixin.qq.com','channels.weixin.qq.com'],weixin_article:['mp.weixin.qq.com']}[row.platform];if(!allowed.some(h=>url.hostname===h||url.hostname.endsWith('.'+h)))throw Error()}catch{notes.push(`主页：${row.accountUrl}`);delete row.accountUrl;warnings.push(`第 ${line} 行主页不是对应平台的 HTTP(S) 链接，原文保留在备注`)}}
   headers.forEach((header,index)=>{if(!used.has(index)&&clean(cells[index]))notes.push(`${clean(header)||'未命名列'}：${clean(cells[index])}`)})

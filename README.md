@@ -6,16 +6,16 @@
 
 ## 下载与安装
 
-在本仓库 Releases 下载 `dsh-media-workbench-0.4.2.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。v0.4.2 支持直接下拉修改选题状态，选择已排期须确认日期时间；新增或调整排期自动变为已排期。选题详情可以添加发布链接或关联已有未归属发布记录，统一进入数据采集与监控。
+在本仓库 Releases 下载 `dsh-media-workbench-0.5.0.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。v0.5.0 支持直接下拉修改选题状态，选择已排期须确认日期时间；新增或调整排期自动变为已排期。选题详情可以添加发布链接或关联已有未归属发布记录，统一进入数据采集与监控。
 
 v0.2.0 将选题、达人、Campaign 和发布数据整理为紧凑表格。选题输入名称后回车创建，点击名称打开详情；发布数据可筛选官方或达人内容。数据监控支持勾选多条发布记录，以折线图或分组柱状图比较各平台的 24h、72h 和至今数据。至今取最近一次快照，缺失数据保持为空。
 
 仓库为私有。请先登录有权限的 GitHub 账号下载，DSH 不能直接匿名获取私有仓库或 Release 链接。可在终端执行：
 
 ```sh
-gh release download v0.4.2 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
+gh release download v0.5.0 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
 mkdir dsh-media-workbench-install
-tar -xzf dsh-media-workbench-0.4.2.tgz -C dsh-media-workbench-install --strip-components=1
+tar -xzf dsh-media-workbench-0.5.0.tgz -C dsh-media-workbench-install --strip-components=1
 ```
 
 然后在 DSH 中让 Agent **通过插件管理流程安装并启用这个解压目录**，提供它的绝对路径。也可克隆本仓库后提供仓库根目录。安装结束按宿主提示重载；侧栏应出现「内容运营」。仅复制到 plugins 目录不会自动启用。不要直接改写正在使用的 generation。
@@ -28,11 +28,11 @@ tar -xzf dsh-media-workbench-0.4.2.tgz -C dsh-media-workbench-install --strip-co
 
 修复页查询 npm 返回 404 表示本插件未在 npm 发布，请从 GitHub 或本地源码更新。
 
-v0.4.2 启用 Chrome 沙箱，消除 `--no-sandbox` 启动警告；新建空白采集页显示就绪说明。关闭旧采集窗口并重启 Desktop 后生效。
+v0.5.0 优先直接读取 B站、小红书指标和实际发布时间，自动留存 24h / 72h，并每 5 分钟刷新当前快照。浏览器仅作备用。保存当前输入并重启 Desktop 后生效。
 
 ## 会话内采集
 
-会话通过 `media_workbench_collect` 调用本机独立 Chrome：先 `open_browser`，完成必要登录后按发布记录 ID 执行 `collect`，保存当前快照。B站、小红书为实验适配；抖音与微信平台仍手动补录。不使用通用 `web_fetch` 替代指标采集。升级后需重启 Desktop 注册新工具。
+会话先通过 `media_workbench_collect` 的 `collect` 直接读取作品链接，补填实际发布时间并保存快照。B站、小红书不必打开浏览器；失败时才使用已打开的浏览器回退。当前数据默认每 5 分钟刷新，24h / 72h 每分钟检查，依赖电脑醒着和 Desktop 运行。错过节点会标记延迟，不还原历史。抖音与微信平台仍手动补录。升级后需重启 Desktop。
 
 ## 本地预览
 

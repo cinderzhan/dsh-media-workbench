@@ -33,7 +33,7 @@ export async function apply(ctx, config = {}) {
     }
   })
   const collectTool = defineTool({
-    name: 'media_workbench_collect', description: '使用本机独立 Chrome 采集已记录作品并保存当前快照，不使用 web_fetch。仅 B站、小红书为实验支持；抖音、视频号、公众号需手动补录。先 media_workbench_read 获取 publicationId，action=open_browser 打开浏览器供用户登录，再 action=collect。失败只报告实际工具错误，不推断 DNS、CDN 或服务器位置。',
+    name: 'media_workbench_collect', description: '优先直接读取作品链接，补填实际发布时间并保存当前快照，不需要打开浏览器，不使用 web_fetch。仅直接读取失败时，可用已打开的 Chrome 补取。仅 B站、小红书为实验支持；抖音、视频号、公众号需手动补录。先 media_workbench_read 获取 publicationId，再 action=collect。只有返回浏览器登录提示时才 action=open_browser，登录后重试。后台会定期采集当前及24/72小时节点，电脑需醒着且宿主运行。失败只报告实际工具错误，不推断 DNS、CDN 或服务器位置。',
     parameters: { action: { type: 'string', description: 'open_browser 或 collect' }, publicationId: { type: 'string', description: 'collect 时填写已记录的 publication id；open_browser 时传空字符串' } }, output,
     async execute(args, exec) {
       exec.signal?.throwIfAborted()

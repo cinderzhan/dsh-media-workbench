@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BrowserCollector } from '../packages/dsh-media-workbench/collector.mjs'
+import { HybridCollector } from '../packages/dsh-media-workbench/direct-collector.mjs'
 import { apply } from '../packages/dsh-media-workbench/index.mjs'
 import { boundContext, createRuntime } from '../packages/dsh-media-workbench/runtime.mjs'
 
@@ -245,24 +246,109 @@ describe('media workbench HTTP runtime', () => {
     await seed(runtime)
     vi.setSystemTime(new Date('2026-09-02T09:59:59Z'))
     await runtime.tick()
-    expect((await runtime.store.read()).snapshots).toHaveLength(0)
+    expect((await runtime.store.read()).snapshots).toHaveLength(1)
     // The app was unavailable at 24h and resumes six hours later.
     vi.setSystemTime(new Date('2026-09-02T16:00:00Z'))
     await runtime.tick()
-    const snapshot = (await runtime.store.read()).snapshots[0]
+    const snapshot = (await runtime.store.read()).snapshots.find(s => s.checkpoint === '24h')
     expect(snapshot).toMatchObject({ checkpoint: '24h', source: 'browser', targetAt: '2026-09-02T10:00:00.000Z', capturedAt: '2026-09-02T16:00:00.000Z' })
     await runtime.tick()
-    expect((await runtime.store.read()).snapshots).toHaveLength(1)
+    expect((await runtime.store.read()).snapshots).toHaveLength(3)
     await runtime.store.mutate({ action: 'upsert', entity: 'topics', id: 'topic', data: { status: 'scheduled', scheduledAt: '2026-10-01T10:00:00Z' } })
     await runtime.store.mutate({ action: 'upsert', entity: 'publications', id: 'publication', data: { scheduledAt: '2026-10-01T10:00:00Z' } })
     await runtime.store.mutate({ action: 'archive', entity: 'topics', id: 'topic' })
-    expect((await runtime.store.read()).snapshots[0]).toEqual(snapshot)
+    expect((await runtime.store.read()).snapshots.find(s => s.checkpoint === '24h')).toEqual(snapshot)
     vi.setSystemTime(new Date('2026-09-04T20:00:00Z'))
     await runtime.tick()
     const state = await runtime.store.read()
-    expect(state.snapshots).toHaveLength(2)
-    expect(state.snapshots[1]).toMatchObject({ checkpoint: '72h', targetAt: '2026-09-04T10:00:00.000Z', capturedAt: '2026-09-04T20:00:00.000Z' })
+    expect(state.snapshots).toHaveLength(5)
+    expect(state.snapshots.find(s => s.checkpoint === '72h')).toMatchObject({ checkpoint: '72h', targetAt: '2026-09-04T10:00:00.000Z', capturedAt: '2026-09-04T20:00:00.000Z' })
     expect(state.publications[0].publishedAt).toBe('2026-09-01T10:00:00Z')
+  }))
+
+  it('discovers dates without a browser and shares one capture across overdue nodes', async () => fixture(async (runtime, collector) => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-05T10:00:00Z'))
+    await seed(runtime, undefined)
+    await runtime.store.mutate({ action: 'upsert', entity: 'publications', id: 'publication', data: { publishedAt: null } })
+    collector.browserReady = false
+    collector.collect.mockResolvedValue({ metrics: { views: 9 }, source: 'direct', publishedAt: '2026-09-01T10:00:00Z' })
+    await Promise.all([runtime.tick(), runtime.tick()])
+    expect(collector.collect).toHaveBeenCalledOnce()
+    expect(collector.open).not.toHaveBeenCalled()
+    const state = await runtime.store.read()
+    expect(state.publications[0].publishedAt).toBe('2026-09-01T10:00:00.000Z')
+    expect(state.snapshots.map(s => s.checkpoint)).toEqual(['24h', '72h', 'current'])
+    expect(new Set(state.snapshots.map(s => s.capturedAt)).size).toBe(1)
+    expect(state.snapshots.every(s => s.source === 'direct')).toBe(true)
+    expect(await (await runtime.handle(request('state'))).json()).toMatchObject({ collection: { browserReady: false, autoEnabled: true, currentRefreshMs: 300000 } })
+    vi.setSystemTime(new Date('2026-09-05T10:04:59Z'))
+    await runtime.tick()
+    expect(collector.collect).toHaveBeenCalledOnce()
+    vi.setSystemTime(new Date('2026-09-05T10:05:00Z'))
+    await runtime.tick()
+    expect(collector.collect).toHaveBeenCalledTimes(2)
+    expect((await runtime.store.read()).snapshots).toHaveLength(4)
+  }))
+
+  it('retries failures after fifteen minutes and fills both missing checkpoints', async () => fixture(async (runtime, collector) => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-05T10:00:00Z'))
+    await seed(runtime)
+    collector.collect.mockRejectedValueOnce(new Error('Unavailable'))
+    await runtime.tick()
+    await runtime.tick()
+    expect(collector.collect).toHaveBeenCalledOnce()
+    expect((await runtime.store.read()).snapshots).toHaveLength(0)
+    vi.setSystemTime(new Date('2026-09-05T10:15:00Z'))
+    await runtime.tick()
+    expect((await runtime.store.read()).snapshots.map(s => s.checkpoint)).toEqual(['24h', '72h', 'current'])
+    await runtime.store.mutate({ action: 'upsert', entity: 'publications', id: 'publication', data: { publishedAt: '2026-09-02T10:00:00Z' } })
+    await runtime.tick()
+    expect((await runtime.store.read()).snapshots).toHaveLength(5)
+  }))
+
+  it('preserves manual dates and persists verified metadata without empty snapshots', async () => fixture(async (runtime, collector) => {
+    await seed(runtime)
+    collector.collect.mockResolvedValue({ metrics: {}, publishedAt: '2026-08-01T10:00:00Z' })
+    expect(await runtime.collect('publication')).toMatchObject({ status: 'manual_required' })
+    expect((await runtime.store.read()).publications[0].publishedAt).toBe('2026-09-01T10:00:00Z')
+    await runtime.store.mutate({ action: 'upsert', entity: 'publications', id: 'publication', data: { publishedAt: null } })
+    await runtime.collect('publication')
+    expect((await runtime.store.read()).publications[0].publishedAt).toBe('2026-08-01T10:00:00.000Z')
+    expect((await runtime.store.read()).snapshots).toHaveLength(0)
+    await runtime.store.mutate({ action: 'upsert', entity: 'publications', id: 'publication', data: { publishedAt: null } })
+    collector.collect.mockResolvedValue({ metrics: { views: 1 }, publishedAt: '2999-01-01T00:00:00Z' })
+    await runtime.collect('publication')
+    expect((await runtime.store.read()).publications[0].publishedAt).toBeNull()
+  }))
+
+  it('uses persisted successes after restart', async () => fixture(async (runtime, collector) => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-05T10:00:00Z'))
+    await seed(runtime)
+    await runtime.tick()
+    const restarted = createRuntime(runtime.store.file.replace(/\/state\.json$/, ''), { collector })
+    try {
+      await restarted.start()
+      await restarted.tick()
+      expect(collector.collect).toHaveBeenCalledOnce()
+      expect((await restarted.store.read()).snapshots).toHaveLength(3)
+    } finally { await restarted.dispose() }
+  }))
+
+  it('discards results after the publication URL changes while collecting', async () => fixture(async (runtime, collector) => {
+    await seed(runtime)
+    const entered = deferred(), release = deferred()
+    collector.collect.mockImplementation(async () => { entered.resolve(); await release.promise; return { metrics: { views: 20 } } })
+    const collection = runtime.collect('publication')
+    try {
+      await entered.promise
+      await runtime.store.mutate({ action: 'upsert', entity: 'publications', id: 'publication', data: { url: 'https://www.bilibili.com/video/BV1Other' } })
+      release.resolve()
+      expect(await collection).toMatchObject({ status: 'manual_required' })
+      expect((await runtime.store.read()).snapshots).toHaveLength(0)
+    } finally { release.resolve(); await collection }
   }))
 
   it('waits for browser readiness and does not collect archived publications', async () => fixture(async (runtime, collector) => {
@@ -333,7 +419,7 @@ describe('media workbench Harness registration', () => {
       await expect(updater.execute({ command: JSON.stringify({ action: 'upsert', entity: 'topics', expectedRevision: updated.revision, data: { title: 'Other session entry' } }) }, { agent: { id: 'another-session' } })).rejects.toThrow('未绑定')
       await expect(updater.execute({ command: JSON.stringify({ action: 'upsert', entity: 'bindings', expectedRevision: updated.revision, data: { sessionId: 'another-session', title: 'Forbidden' } }) }, exec)).rejects.toThrow('不可修改会话绑定')
       const openBrowser = vi.spyOn(BrowserCollector.prototype,'open').mockResolvedValue()
-      const collectPage = vi.spyOn(BrowserCollector.prototype,'collect').mockResolvedValue({metrics:{likes:7}})
+      const collectPage = vi.spyOn(HybridCollector.prototype,'collect').mockResolvedValue({metrics:{likes:7}})
       try {
         expect(JSON.parse(await collector.execute({action:'open_browser',publicationId:''},exec)).status).toBe('ok')
         expect(openBrowser).toHaveBeenCalledOnce()

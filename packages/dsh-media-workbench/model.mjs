@@ -87,7 +87,7 @@ function validateRecord(state, entity, row) {
   for (const [key, target] of [['topicId', 'topics'], ['creatorId', 'creators'], ['campaignId', 'campaigns'], ['publicationId', 'publications']]) reference(state, target, row[key], key)
   if (entity === 'snapshots') {
     required(row.publicationId, 'publicationId'); date(row.capturedAt, 'capturedAt', true)
-    oneOf(row.checkpoint, ['current', '24h', '72h'], 'checkpoint'); oneOf(row.source, ['manual', 'browser', 'import'], 'source')
+    oneOf(row.checkpoint, ['current', '24h', '72h'], 'checkpoint'); oneOf(row.source, ['manual', 'browser', 'direct', 'import'], 'source')
     if (!object(row.metrics)) fail('metrics must be an object')
     for (const [key, value] of Object.entries(row.metrics)) { if (!METRICS.includes(key)) fail(`Unknown metric: ${key}`); number(value, key) }
   }

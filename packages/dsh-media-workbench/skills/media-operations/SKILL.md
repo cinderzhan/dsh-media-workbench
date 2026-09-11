@@ -121,5 +121,9 @@ description: 在已绑定内容运营工作台的 DSH 会话中，通过 media_w
 - 每日成果按天新增量；相同 `date` 保存会更新已有记录，操作前应查看当天数据。未知数据保留 `null`；不能把同期下载、Star 或线索变化归因为某条作品。
 - `quote` 是达人参考报价，`cost` 是发布交付实际费用。Campaign 费用只汇总 `cost`，缺项说明费用未完整。跨平台套餐不得在每条作品重复记全额。
 - 归档保留引用和历史；常规分析排除 `archivedAt` 非空记录，用户明确要求历史时再纳入。
-- 浏览器采集是实验能力，仅启用 B站/小红书适配；抖音及微信两平台手动补录。实验采集只接受含作品 ID 的完整 HTTPS 作品 URL，并核对最终页面作品 ID；短链接需先展开为完整作品链接，不得将跳转后的其他作品数据归入原记录。用户需要本机醒着、宿主运行、独立 Chrome 开启及必要的登录状态。不要承诺端到端采集已验证、精确到点、电脑关闭后仍运行或已安装到生产环境。
-- 用户需要采集时可指向面板中的“打开采集浏览器”和“尝试自动采集”。会话中使用 `media_workbench_collect`：先 `action=open_browser, publicationId=""` 打开本机独立 Chrome，用户完成必要登录后，调用 `action=collect, publicationId=已有发布记录ID`。此工具保存当前快照；不要向 `media_workbench_update` 发送 collect action。不要用通用 `web_fetch` 替代本机指标采集。失败按实际 message 报告，不能仅凭 non-public IP 错误断言国内 CDN 为私网、工具位于模型服务器或 DNS 原因。
+- 自动采集优先直接请求 B站/小红书作品页，读取已核对作品 ID 的结构化指标及实际发布时间；保留完整分享参数。直接读取失败时可使用已打开的独立 Chrome 回退，不自动打开浏览器。抖音及微信两平台手动补录。
+- 先 `media_workbench_read` 获取 publicationId，然后 `media_workbench_collect` 使用 `action=collect`。仅提示需要登录或浏览器回退时才 `action=open_browser, publicationId=""`，登录后重试。不要向 update 工具发送 collect action，也不要用 web_fetch 替代指标采集。
+- 实际发布时间只补填空缺，不覆盖手动时间，不将更新时间或选题排期当成实际发布时间。缺失指标不得写零，不将缩略值当精确数。
+- 宿主每分钟检查24h/72h，当前快照默认每5分钟刷新，失败15分钟重试；不需保持工作台前台，但电脑必须醒着、联网且Desktop运行。关闭电脑后不继续运行。当前数据不是实时推送。
+- 过期节点只能保存现在观察的数据并标明延迟，targetAt与capturedAt分别保存；不能伪造24/72小时历史数据。直接读取source为direct，浏览器为browser；只读到日期时不制造空快照。
+- 失败按实际工具结果报告，不能仅凭non-public IP错误推断国内CDN为私网、工具位于模型服务器或其他未经验证的网络原因。

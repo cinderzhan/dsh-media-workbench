@@ -1,6 +1,6 @@
 {
   "name": "dsh-media-workbench",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "description": "DSH Desktop 内容运营工作台",
   "main": "./packages/dsh-media-workbench/index.mjs",

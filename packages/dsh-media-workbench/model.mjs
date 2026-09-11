@@ -161,7 +161,10 @@ export function applyMutation(state, command) {
       if (!object(row)) fail('Creator row must be an object')
       required(row.name, 'name'); oneOf(row.platform, PLATFORMS, 'platform')
       const key = creatorKey(row)
-      upsert(row, next.creators.find(existing => creatorKey(existing) === key)?.id)
+      const existing = next.creators.find(existing => creatorKey(existing) === key)
+      const imported = { ...row }
+      if (present(existing?.notes) && present(imported.notes)) imported.notes = existing.notes.includes(imported.notes) ? existing.notes : `${existing.notes}\n${imported.notes}`
+      upsert(imported, existing?.id)
     }
   } else {
     if (command.action === 'bindSession' && entity !== 'bindings') fail('bindSession requires bindings')

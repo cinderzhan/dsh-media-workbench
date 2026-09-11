@@ -1,7 +1,7 @@
 const PLATFORM = { bilibili: 'B站', douyin: '抖音', xiaohongshu: '小红书', weixin_channels: '视频号', weixin_article: '微信公众号' }
 const METRIC = { views: '观看', reads: '文章阅读', likes: '点赞', comments: '评论', favorites: '收藏', shares: '转发', followers: '涨粉', coins: '投币', danmaku: '弹幕' }
 const CHECKPOINT = { '24h': '24 小时', '72h': '72 小时', current: '至今' }
-const SERIES_COLORS = ['#355d8a', '#a15b32', '#397267', '#875783', '#72712d', '#545d70']
+const SERIES_COLORS = ['#527a95', '#6f8f7b', '#bd9364', '#9180a6', '#b77575', '#7c8e99']
 const ORIGIN = { manual: '手动', browser: '浏览器', direct: '直接读取', import: '导入' }
 const mounted = new WeakMap()
 const SVG = 'http://www.w3.org/2000/svg'
@@ -141,7 +141,7 @@ function chartSvg(title, width, height, id) {
 function modelChart(model, prefix) {
   const { categories, series, xAxis, chartType } = model
   const isTime = xAxis === 'time'
-  const width = Math.max(660, isTime ? 660 : categories.length * Math.max(100, chartType === 'bar' ? series.length * 14 : 100) + 100)
+  const width = Math.max(560, isTime ? 560 : categories.length * Math.max(100, chartType === 'bar' ? series.length * 14 : 100) + 100)
   const height = 280, left = 65, right = 25, top = 20, bottom = 60, plotWidth = width - left - right
   const values = series.flatMap(item => item.points.filter(point => (!isTime || numeric(point.x)) && numeric(point.value)).map(point => point.value))
   // Scale before subtraction to keep finite extreme input values from overflowing.
@@ -155,7 +155,7 @@ function modelChart(model, prefix) {
   const x = key => isTime ? minTime === maxTime ? left + plotWidth / 2 : left + (key - minTime) / (maxTime - minTime) * plotWidth : left + ((categoryIndex.get(key) ?? 0) + 0.5) / Math.max(1, categories.length) * plotWidth
   const title = `${VIEW[model.view]}，${chartType === 'line' ? '折线图' : '柱状图'}。横轴：${AXIS[xAxis]}；纵轴：${model.metrics.map(key => METRIC[key]).join('、')}（原始数量）。缺失值不按零计算。`
   const svg = chartSvg(title, width, height, `${prefix}-chart-title`)
-  svg.style.minWidth = `${width}px`
+  svg.style.minWidth = width > 900 ? `${width}px` : '0'
   for (const fraction of [0, 0.5, 1]) {
     const value = (minimum + (maximum - minimum) * fraction) * magnitude
     svg.append(svgNode('line', { x1: left, x2: width - right, y1: y(value), y2: y(value), class: 'analytics-grid' }), svgNode('text', { x: left - 8, y: y(value) + 4, 'text-anchor': 'end', class: 'analytics-axis-label' }, Math.abs(value) >= 1e6 ? value.toExponential(1) : format(Math.round(value * 10) / 10)))
@@ -165,7 +165,8 @@ function modelChart(model, prefix) {
     const ticks = minTime === maxTime ? [minTime] : [minTime, (minTime + maxTime) / 2, maxTime]
     ticks.forEach((time, index) => svg.append(svgNode('text', { x: x(time), y: height - 31, 'text-anchor': ticks.length === 1 ? 'middle' : index === 0 ? 'start' : index === ticks.length - 1 ? 'end' : 'middle', class: 'analytics-axis-label' }, timestamp(new Date(time).toISOString()))))
   } else categories.forEach(category => {
-    const label = svgNode('text', { x: x(category.key), y: height - 31, 'text-anchor': 'middle', class: 'analytics-axis-label' }, category.label.length > 16 ? `${category.label.slice(0, 15)}…` : category.label)
+    const labelLimit = categories.length > 3 ? 5 : 9
+    const label = svgNode('text', { x: x(category.key), y: height - 31, 'text-anchor': 'middle', class: 'analytics-axis-label' }, category.label.length > labelLimit ? `${category.label.slice(0, labelLimit - 1)}…` : category.label)
     label.append(svgNode('title', {}, category.label)); svg.append(label)
   })
   svg.append(svgNode('text', { x: left + plotWidth / 2, y: height - 7, 'text-anchor': 'middle', class: 'analytics-axis-label' }, `横轴：${AXIS[xAxis]}`))
@@ -196,38 +197,72 @@ function modelChart(model, prefix) {
   if (!values.length) wrap.append(node('p', '所选指标暂无可绘制数据，可在原始明细中查看采集记录。', 'analytics-empty'))
   return wrap
 }
-/** Read-only panel: selection, filters and each view's chart settings survive refreshes. */
-export function renderAnalytics(container, state) {
-  let context = mounted.get(container)
-  if (!context) {
-    context = { prefix: `media-analytics-${++sequence}`, view: 'content', filters: { platform: '', owner: '', source: '' }, selectedIds: null, settings: Object.fromEntries(Object.entries(DEFAULTS).map(([key, value]) => [key, { ...value, overlayMetrics: [] }])) }
-    mounted.set(container, context)
+/** Configurations belong to this browser and workspace; raw analytics data stays read-only. */
+export function renderAnalytics(container, state, options = {}) {
+  const scope = options.workspaceId || state.workspaceId || state.workspace?.id || state.workspacePath || location.pathname
+  const storageKey = `dsh.analytics.dashboard.v1:${scope}`
+  let dashboard = mounted.get(container)
+  const makeCard = (view = 'content') => ({ prefix: `media-analytics-${++sequence}`, title: VIEW[view], view, filters: { platform: '', owner: '', source: '' }, selectedIds: null, settings: Object.fromEntries(Object.entries(DEFAULTS).map(([key, value]) => [key, { ...value, overlayMetrics: [] }])) })
+  if (!dashboard || dashboard.storageKey !== storageKey) {
+    let saved
+    try { saved = JSON.parse(window.localStorage.getItem(storageKey)) } catch { /* Storage may be disabled. */ }
+    dashboard = { storageKey, cards: Array.isArray(saved) ? saved.filter(card => card && Object.hasOwn(VIEW, card.view)).map(card => {
+      const fresh = makeCard(card.view)
+      fresh.title = typeof card.title === 'string' ? card.title.slice(0, 80) : fresh.title
+      fresh.filters = { ...fresh.filters, ...card.filters }
+      fresh.selectedIds = Array.isArray(card.selectedIds) ? new Set(card.selectedIds.filter(id => typeof id === 'string')) : null
+      for (const view of Object.keys(DEFAULTS)) {
+        const settings = card.settings?.[view]
+        fresh.settings[view] = { ...fresh.settings[view], ...settings, overlayMetrics: Array.isArray(settings?.overlayMetrics) ? settings.overlayMetrics.filter(key => Object.hasOwn(METRIC, key)).slice(0, 2) : [] }
+      }
+      return fresh
+    }) : [makeCard('content'), makeCard('history')] }
+    mounted.set(container, dashboard)
   }
-  context.state = state
+  const persist = () => {
+    try { window.localStorage.setItem(storageKey, JSON.stringify(dashboard.cards.map(({ title, view, filters, settings, selectedIds }) => ({ title, view, filters, settings, selectedIds: selectedIds === null ? null : [...selectedIds] })))) } catch { /* In-memory settings still work. */ }
+  }
   container.classList.add('analytics')
+  const drawDashboard = () => {
+    container.replaceChildren()
+    const heading = node('div', undefined, 'analytics-dashboard-heading')
+    heading.append(node('h2', '数据看板'))
+    const add = node('button', '添加图表'); add.type = 'button'; add.addEventListener('click', () => { const card = makeCard(); card.title = '新图表'; card.editOpen = true; dashboard.cards.push(card); persist(); drawDashboard(); container.querySelector('.analytics-chart-card:last-child input')?.focus() }); heading.append(add); container.append(heading)
+    const grid = node('div', undefined, 'analytics-dashboard-grid'); container.append(grid)
+    if (!dashboard.cards.length) grid.append(node('p', '添加图表，开始组合你的数据看板。', 'analytics-empty'))
+    for (const context of dashboard.cards) {
+      const card = node('article', undefined, 'analytics-chart-card'); grid.append(card)
+      context.state = state
+      renderCard(card, context, persist, () => { dashboard.cards = dashboard.cards.filter(item => item !== context); persist(); drawDashboard() })
+    }
+  }
+  drawDashboard()
+}
+function renderCard(container, context, persist, remove) {
   const draw = () => {
+    persist()
     const { filters, prefix, view } = context, settings = context.settings[view]
     const config = { ...filters, ...settings, view }
     container.replaceChildren()
-    const heading = node('div', undefined, 'analytics-heading'); heading.append(node('h2', '作品数据看板')); container.append(heading)
+    const heading = node('div', undefined, 'analytics-card-heading'); heading.append(node('h3', context.title))
+    const removeButton = node('button', '删除'); removeButton.type = 'button'; removeButton.setAttribute('aria-label', `删除图表：${context.title}`); removeButton.addEventListener('click', remove); heading.append(removeButton); container.append(heading)
     const select = (key, label, options, value, change) => {
       const wrapper = node('label', undefined, 'analytics-control'); wrapper.append(node('span', label))
       const control = node('select'); control.id = `${prefix}-${key}`
       for (const [v, title] of Object.entries(options)) { const option = node('option', title); option.value = v; control.append(option) }
       control.value = value; control.addEventListener('change', () => { change(control.value); draw(); container.querySelector(`#${prefix}-${key}`)?.focus() }); wrapper.append(control); return wrapper
     }
-    const views = node('div', undefined, 'analytics-views'); views.setAttribute('role', 'group'); views.setAttribute('aria-label', '对比视图')
-    for (const [key, label] of Object.entries(VIEW)) {
-      const button = node('button', label); button.type = 'button'; button.setAttribute('aria-pressed', String(view === key)); button.addEventListener('click', () => { context.view = key; draw() }); views.append(button)
-    }
-    container.append(views)
+    const editor = disclosure('编辑图表', node('div')); editor.className = 'analytics-editor'; editor.open = Boolean(context.editOpen); editor.addEventListener('toggle', () => { if (editor.isConnected) context.editOpen = editor.open });
+    const editBody = editor.lastElementChild; container.append(editor)
+    const titleLabel = node('label', undefined, 'analytics-control'); titleLabel.append(node('span', '图表名称')); const titleInput = node('input'); titleInput.value = context.title; titleInput.maxLength = 80; titleInput.addEventListener('change', () => { context.title = titleInput.value.trim() || VIEW[view]; draw() }); titleLabel.append(titleInput); editBody.append(titleLabel)
     const controls = node('div', undefined, 'analytics-controls')
+    controls.append(select('view', '分析内容', VIEW, view, value => { context.view = value }))
     controls.append(select('x-axis', '横轴', view === 'content' ? { content: AXIS.content, checkpoint: AXIS.checkpoint } : view === 'history' ? { time: AXIS.time } : { platform: AXIS.platform }, settings.xAxis, value => { settings.xAxis = value; settings.checkpoint = value === 'checkpoint' ? 'all' : 'current' }))
     controls.append(select('metric', '纵轴 · 主指标', METRIC, settings.metric, value => { settings.metric = value; settings.overlayMetrics = settings.overlayMetrics.filter(key => key !== value) }))
     controls.append(select('chart-type', '图表类型', { bar: '柱状图', line: '折线图' }, settings.chartType, value => { settings.chartType = value }))
     if (view !== 'history') controls.append(select('checkpoint', '取值范围', settings.xAxis === 'checkpoint' ? { all: '全部发布后节点', current: '最新采集记录', '24h': '24 小时节点', '72h': '72 小时节点' } : { current: '最新采集记录', '24h': '24 小时节点', '72h': '72 小时节点' }, settings.checkpoint, value => { settings.checkpoint = value }))
     for (const [key, label, options] of [['platform', '平台筛选', { '': '全部平台', ...PLATFORM }], ['owner', '内容来源', { '': '官方及达人', official: '官方发布', creator: '达人发布' }], ['source', '采集来源', { '': '全部来源', ...ORIGIN }]]) controls.append(select(key, label, options, filters[key], value => { filters[key] = value }))
-    container.append(controls)
+    editBody.append(controls)
     const overlayBody = node('div', undefined, 'analytics-overlay-list')
     for (const [key, label] of Object.entries(METRIC)) {
       if (key === settings.metric) continue
@@ -236,7 +271,7 @@ export function renderAnalytics(container, state) {
       wrapper.append(input, node('span', label)); overlayBody.append(wrapper)
     }
     const overlays = disclosure(`纵轴叠加指标 · ${settings.overlayMetrics.length}/2${settings.overlayMetrics.length ? ' · ' + settings.overlayMetrics.map(key => METRIC[key]).join('、') : ''}`, overlayBody)
-    overlays.open = Boolean(context.overlayOpen); overlays.addEventListener('toggle', () => { if (overlays.isConnected) context.overlayOpen = overlays.open }); container.append(overlays)
+    overlays.open = Boolean(context.overlayOpen); overlays.addEventListener('toggle', () => { if (overlays.isConnected) context.overlayOpen = overlays.open }); editBody.append(overlays)
     const candidates = deriveAnalyticsRows(context.state, { ...filters, metric: settings.metric, checkpoint: 'current' })
     if (context.selectedIds === null && candidates.length) context.selectedIds = new Set(candidates.slice(0, 5).map(row => row.publication.id))
     const selectedIds = context.selectedIds || new Set()
@@ -254,7 +289,8 @@ export function renderAnalytics(container, state) {
     }
     pickerBody.append(pickerList)
     const picker = disclosure(`选择内容 · ${model.rows.length} 条参与${view === 'history' ? '趋势' : '对比'}`, pickerBody); picker.className = 'analytics-picker'; picker.open = Boolean(context.pickerOpen)
-    picker.addEventListener('toggle', () => { if (picker.isConnected) context.pickerOpen = picker.open }); container.append(picker)
+    picker.addEventListener('toggle', () => { if (picker.isConnected) context.pickerOpen = picker.open }); editBody.append(picker)
+    persist()
     if (!candidates.length) { container.append(node('p', '暂无符合筛选条件的发布记录。', 'analytics-empty')); return }
     if (!model.rows.length) { container.append(node('p', '选择一条或多条内容，组合查看数据。', 'analytics-empty')); return }
     const snapshots = new Set(model.series.flatMap(item => item.points.filter(point => point.snapshot).map(point => point.snapshot)))

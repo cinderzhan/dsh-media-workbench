@@ -23,14 +23,15 @@ describe('configurable analytics views',()=>{
 describe('analytics view controls',()=>{
  it('keeps per-view metrics and chart types, supports overlay, and preserves selected publications on refresh',()=>{
   const root=document.createElement('section');document.body.append(root);renderAnalytics(root,state);
-  const choose=(suffix,value)=>{const el=root.querySelector(`select[id$="${suffix}"]`);el.value=value;el.dispatchEvent(new Event('change'))};
-  const view=name=>[...root.querySelectorAll('.analytics-views button')].find(b=>b.textContent===name).click();
-  choose('metric','likes');view('历史趋势');expect(root.querySelector('select[id$="metric"]').value).toBe('views');expect(root.querySelector('select[id$="chart-type"]').value).toBe('line');expect(root.querySelectorAll('.analytics-series-chart path')).toHaveLength(2);
-  const overlay=[...root.querySelectorAll('.analytics-overlay-list label')].find(l=>l.textContent==='点赞').querySelector('input');overlay.click();expect(root.querySelectorAll('.analytics-series-chart path')).toHaveLength(4);
-  root.querySelector('[data-publication-id="d"]').click();expect(root.querySelectorAll('.analytics-series-chart path')).toHaveLength(2);
-  renderAnalytics(root,state);expect(root.querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(1);expect(root.querySelectorAll('.analytics-series-chart path')).toHaveLength(2);
-  view('多内容对比');expect(root.querySelector('select[id$="metric"]').value).toBe('likes');expect(root.querySelector('select[id$="chart-type"]').value).toBe('bar');
-  view('多平台对比');expect(root.querySelector('select[id$="x-axis"]').value).toBe('platform');expect(root.querySelectorAll('.analytics-series-chart')).toHaveLength(1);root.remove();
+  const card=()=>root.querySelector('.analytics-chart-card');
+  const choose=(suffix,value)=>{const el=card().querySelector(`select[id$="${suffix}"]`);el.value=value;el.dispatchEvent(new Event('change'))};
+  const view=name=>choose('view', {'历史趋势':'history','多内容对比':'content','多平台对比':'platform'}[name]);
+  choose('metric','likes');view('历史趋势');expect(card().querySelector('select[id$="metric"]').value).toBe('views');expect(card().querySelector('select[id$="chart-type"]').value).toBe('line');expect(card().querySelectorAll('.analytics-series-chart path')).toHaveLength(2);
+  const overlay=[...card().querySelectorAll('.analytics-overlay-list label')].find(l=>l.textContent==='点赞').querySelector('input');overlay.click();expect(card().querySelectorAll('.analytics-series-chart path')).toHaveLength(4);
+  card().querySelector('[data-publication-id="d"]').click();expect(card().querySelectorAll('.analytics-series-chart path')).toHaveLength(2);
+  renderAnalytics(root,state);expect(card().querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(1);expect(card().querySelectorAll('.analytics-series-chart path')).toHaveLength(2);
+  view('多内容对比');expect(card().querySelector('select[id$="metric"]').value).toBe('likes');expect(card().querySelector('select[id$="chart-type"]').value).toBe('bar');
+  view('多平台对比');expect(card().querySelector('select[id$="x-axis"]').value).toBe('platform');expect(card().querySelectorAll('.analytics-series-chart')).toHaveLength(1);root.remove();
  });
- it('renders negative, missing and invalid timestamp values without invalid SVG coordinates',()=>{const root=document.createElement('section');document.body.append(root);const data=structuredClone(state);data.snapshots.push(snap('b','bad-date',{views:100}));data.snapshots.push(snap('d','2026-09-05T00:00:00Z',{views:-5}));renderAnalytics(root,data);[...root.querySelectorAll('.analytics-views button')].find(b=>b.textContent==='历史趋势').click();expect(root.querySelector('.analytics-svg').outerHTML).not.toMatch(/NaN|Infinity/);expect(root.textContent).toContain('-5');root.remove()});
+ it('renders negative, missing and invalid timestamp values without invalid SVG coordinates',()=>{const root=document.createElement('section');document.body.append(root);const data=structuredClone(state);data.snapshots.push(snap('b','bad-date',{views:100}));data.snapshots.push(snap('d','2026-09-05T00:00:00Z',{views:-5}));renderAnalytics(root,data);const card=()=>root.querySelectorAll('.analytics-chart-card')[1];expect(card().querySelector('.analytics-svg').outerHTML).not.toMatch(/NaN|Infinity/);expect(root.textContent).toContain('-5');root.remove()});
 });

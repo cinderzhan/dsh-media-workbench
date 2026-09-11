@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { deriveAnalyticsRows, deriveComparisonSeries, renderAnalytics } from '../packages/dsh-media-workbench/public/analytics.js'
+
+beforeEach(() => {
+  const values = new Map()
+  Object.defineProperty(window, 'localStorage', { configurable: true, value: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), clear: () => values.clear() } })
+})
 
 const filters = { metric: 'views', checkpoint: 'current', platform: '', owner: '', source: '' }
 const publication = (id, patch = {}) => ({ id, title: `作品 ${id}`, platform: 'bilibili', ...patch })
@@ -117,18 +122,22 @@ describe('selected publication comparisons', () => {
     ] }
     const container = document.createElement('section'); document.body.append(container)
     renderAnalytics(container, state)
-    expect(container.querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(2)
-    expect(container.querySelectorAll('.analytics-series-chart rect')).toHaveLength(2)
-    const checkbox = container.querySelector('[data-publication-id="b"]')
+    const card = () => container.querySelector('.analytics-chart-card')
+    expect(container.querySelectorAll('.analytics-chart-card')).toHaveLength(2)
+    expect(container.querySelector('.analytics-views')).toBeNull()
+    expect(container.querySelector('.analytics-editor').open).toBe(false)
+    expect(card().querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(2)
+    expect(card().querySelectorAll('.analytics-series-chart rect')).toHaveLength(2)
+    const checkbox = card().querySelector('[data-publication-id="b"]')
     checkbox.click()
-    expect(container.querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(1)
-    const mode = container.querySelector('select[id$="chart-type"]'); mode.value = 'bar'; mode.dispatchEvent(new Event('change'))
-    expect(container.querySelectorAll('.analytics-series-chart rect')).toHaveLength(1)
+    expect(card().querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(1)
+    const mode = card().querySelector('select[id$="chart-type"]'); mode.value = 'bar'; mode.dispatchEvent(new Event('change'))
+    expect(card().querySelectorAll('.analytics-series-chart rect')).toHaveLength(1)
     renderAnalytics(container, state)
-    expect(container.querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(1)
-    expect(container.querySelector('select[id$="chart-type"]').value).toBe('bar')
-    ;[...container.querySelectorAll('button')].find(button => button.textContent === '清空选择').click()
-    expect(container.querySelector('.analytics-series-chart')).toBeNull()
+    expect(card().querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(1)
+    expect(card().querySelector('select[id$="chart-type"]').value).toBe('bar')
+    ;[...card().querySelectorAll('button')].find(button => button.textContent === '清空选择').click()
+    expect(card().querySelector('.analytics-series-chart')).toBeNull()
     expect(container.textContent).toContain('选择一条或多条内容')
     container.remove()
   })
@@ -155,5 +164,42 @@ describe('selected publication comparisons', () => {
     const scoped = { ...filters, checkpoint: '24h', metric: 'likes' }
     expect(deriveComparisonSeries(state, scoped, ['a'])[0].points[0].value).toBeNull()
     expect(deriveComparisonSeries(state, { ...scoped, source: 'manual' }, ['a'])[0].points.map(point => point.value)).toEqual([4])
+  })
+})
+
+
+describe('dashboard configuration', () => {
+  it('saves independent chart settings, additions and deletion across remounts', () => {
+    const state = { workspaceId: 'dashboard-test', publications: [publication('a')], snapshots: [snapshot('a', 10, '2026-09-11T10:00:00Z')] }
+    const mount = () => { const target = document.createElement('section'); renderAnalytics(target, state); return target }
+    let target = mount()
+    const first = target.querySelector('.analytics-chart-card')
+    const title = first.querySelector('.analytics-editor input:not([type=checkbox])')
+    title.value = '每周互动'; title.dispatchEvent(new Event('change'))
+    const metric = first.querySelector('select[id$="metric"]'); metric.value = 'likes'; metric.dispatchEvent(new Event('change'))
+    target.querySelector('.analytics-dashboard-heading button').click()
+    expect(target.querySelectorAll('.analytics-chart-card')).toHaveLength(3)
+    target = mount()
+    expect(target.querySelectorAll('.analytics-chart-card')).toHaveLength(3)
+    expect(target.querySelector('h3').textContent).toBe('每周互动')
+    expect(target.querySelector('select[id$="metric"]').value).toBe('likes')
+    expect(target.querySelectorAll('select[id$="metric"]')[1].value).toBe('views')
+    target.querySelector('.analytics-card-heading button').click()
+    target = mount()
+    expect(target.querySelectorAll('.analytics-chart-card')).toHaveLength(2)
+    expect(target.textContent).not.toContain('每周互动')
+    const other = document.createElement('section'); renderAnalytics(other, { ...state, workspaceId: 'other' })
+    expect(other.querySelector('h3').textContent).toBe('多内容对比')
+  })
+  it('preserves an empty dashboard and recovers from invalid saved JSON', () => {
+    const state = { workspaceId: 'empty-test' }
+    let target = document.createElement('section'); renderAnalytics(target, state)
+    target.querySelector('.analytics-card-heading button').click()
+    target.querySelector('.analytics-card-heading button').click()
+    target = document.createElement('section'); renderAnalytics(target, state)
+    expect(target.querySelectorAll('.analytics-chart-card')).toHaveLength(0)
+    expect(target.textContent).toContain('添加图表')
+    window.localStorage.setItem('dsh.analytics.dashboard.v1:empty-test', '{')
+    renderAnalytics(document.createElement('section'), state)
   })
 })

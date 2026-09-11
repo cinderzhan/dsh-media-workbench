@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     let bindings = new Map()
     let lastCurrent
     let canEmbedConversation = false
-    const change = patch => { current = { ...current, ...patch }; listeners.forEach(fn => fn()) }
+    const change = patch => { current = { ...current, ...patch }; if (Object.hasOwn(patch, 'open')) { try { localStorage.setItem('media-workbench-open', patch.open ? '1' : '0') } catch {} } listeners.forEach(fn => fn()) }
     const subscribe = fn => { listeners.add(fn); return () => listeners.delete(fn) }
     const request = async (path, data) => {
       const response = await fetch(`/api/media-workbench/${path}`, data ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) } : {})
@@ -20,6 +20,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     }
     async function bind(intent) {
       if (current.busy) return
+      if (!canEmbedConversation) throw new Error('当前 Desktop 缺少工作台会话承载接口。请先完成宿主适配；此状态不代表工作台会话接入已通过验收。')
       change({ busy: true, error: '' })
       try {
         const state = await request('state')
@@ -36,7 +37,6 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
         if (!sessionId) {
           const workspace = await ctx.workspaces.create({ path: state.projectRoot })
           sessionId = await ctx.sessions.create({ workspaceId: workspace.workspaceId })
-          ctx.sessions.open(sessionId)
           const next = await request('mutate', { action: 'bindSession', data: { sessionId, scope, ...(entityId ? { entityId } : {}), title } })
           binding = next.bindings.find(b => b.sessionId === sessionId)
           const scoped = ctx.sessions.scope(sessionId)
@@ -53,7 +53,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
           await request('mutate', { action: 'bindSession', data: { sessionId, scope, ...(entityId ? { entityId } : {}), title, lastUsedAt: new Date().toISOString() } })
         }
         ctx.sessions.open(sessionId)
-        change({ binding, open: canEmbedConversation })
+        change({ binding, open: true })
         return { sessionId, scope, entityId }
       } finally { change({ busy: false }) }
     }
@@ -82,14 +82,15 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
       change({ binding, open: current.open && (current.busy || !!binding) })
       if (binding) request('mutate', { action: 'bindSession', data: { sessionId: binding.sessionId, scope: binding.scope, ...(binding.entityId ? { entityId: binding.entityId } : {}), title: binding.title, lastUsedAt: new Date().toISOString() } }).catch(error => change({ error: error.message }))
     }))
-    request('state').then(() => {
+    request('state').then(async () => {
+      if (localStorage.getItem('media-workbench-open') === '1') { await openWorkbench(true); return }
       const id = ctx.sessions.list.getSnapshot().current
       lastCurrent = id
       change({ binding: bindings.get(id) || null })
     }).catch(error => change({ error: error.message }))
     function SidebarButton({ wide }) {
       const state = React.useSyncExternalStore(subscribe, () => current)
-      return h('button', { type: 'button', title: '内容运营工作台', 'aria-label': '内容运营工作台', onClick: () => openWorkbench(true), style: { width: '100%', minHeight: 34, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', border: 0, borderRadius: 7, background: state.open ? 'var(--dsw-alias-interactive-bg-hover,#eef2f7)' : 'transparent', color: 'inherit', cursor: 'pointer', textAlign: 'left' } }, h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, 'aria-hidden': true }, h('rect', { x: 3, y: 4, width: 18, height: 17, rx: 2 }), h('path', { d: 'M3 9h18M8 2v4m8-4v4M7 13h3m4 0h3m-10 4h3' })), wide !== false && '内容运营')
+      return h('button', { type: 'button', title: '内容运营工作台', 'aria-label': '内容运营工作台', onClick: () => openWorkbench(true), style: { minWidth: wide === false ? 34 : 90, flexShrink: 0, whiteSpace: 'nowrap', minHeight: 34, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', border: 0, borderRadius: 7, background: state.open ? 'var(--dsw-alias-interactive-bg-hover,#eef2f7)' : 'transparent', color: 'inherit', cursor: 'pointer', textAlign: 'left' } }, h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, 'aria-hidden': true }, h('rect', { x: 3, y: 4, width: 18, height: 17, rx: 2 }), h('path', { d: 'M3 9h18M8 2v4m8-4v4M7 13h3m4 0h3m-10 4h3' })), wide !== false && '内容运营')
     }
     function Panel({ conversationHost, claimConversationHost, renderConversation }) {
       canEmbedConversation = typeof claimConversationHost === 'function' && typeof renderConversation === 'function'
@@ -128,9 +129,11 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
           h('div',{ref:dockRef,style:{flex:1,minHeight:0,height:'100%'}})),
         state.open && chat && createPortal(h('div',{style:{height:'100%',minHeight:0,display:'flex',flexDirection:'column'}},
           h('div',{style:{padding:'6px 10px',display:'flex',alignItems:'center',gap:8,borderBottom:'1px solid #ededeb',fontSize:11}},
-            h('span',{style:{flex:1}},state.binding ? `归属：${state.binding.title}` : '选择或新建工作台会话'),
-            h('button',{type:'button',onClick:()=>bind({intent:'new'}).catch(error=>change({error:error.message})),disabled:state.busy},'新建会话')),
-          h('div',{style:{position:'relative',flex:1,minHeight:0,minWidth:0,display:'flex',flexDirection:'column'}},!state.binding ? h('p',{style:{padding:20,fontSize:12,lineHeight:1.8,color:'#666'}},'新建工作台会话，或从选题、Campaign 中选择关联会话。') : conversationHost==='dsh-media-workbench' && renderConversation ? renderConversation() : h('div',{style:{padding:16,fontSize:12,lineHeight:1.8}},h('p',null,'此版本在 DSH 原生会话页面继续对话，内容与会话绑定会保留。'),h('button',{type:'button',onClick:()=>{ctx.sessions.open(state.binding.sessionId);change({open:false})}},'继续关联会话')))
+            h('select',{'aria-label':'工作台会话',value:state.binding?.sessionId||'',style:{flex:1,minWidth:0,maxWidth:'100%',fontSize:11},disabled:state.busy||!canEmbedConversation,onChange:event=>{const b=bindings.get(event.target.value);if(b)bind({scope:b.scope,entityId:b.entityId,sessionId:b.sessionId,intent:'resume'}).catch(error=>change({error:error.message}))}},
+              h('option',{value:'',disabled:true},'选择工作台会话'),
+              [...bindings.values()].sort((a,b)=>b.lastUsedAt.localeCompare(a.lastUsedAt)).map(b=>h('option',{key:b.sessionId,value:b.sessionId},`${b.title} · ${b.sessionId.slice(-6)}`))),
+            h('button',{type:'button',onClick:()=>bind({intent:'new',scope:state.binding?.scope||'workbench',entityId:state.binding?.entityId}).catch(error=>change({error:error.message})),disabled:state.busy||!canEmbedConversation},'新建会话')),
+          h('div',{'data-media-native-conversation':true,style:{position:'relative',flex:1,minHeight:0,minWidth:0,display:'flex',flexDirection:'column'}},!canEmbedConversation ? h('div',{role:'status',style:{padding:16,fontSize:12,lineHeight:1.8}},h('p',null,'当前 Desktop 尚未提供工作台内会话接口。业务面板可用，会话接入待适配。'),state.binding&&h('button',{type:'button',onClick:()=>{ctx.sessions.open(state.binding.sessionId);change({open:false})}},'退出工作台并打开普通对话')) : !state.binding ? h('p',{style:{padding:20,fontSize:12,lineHeight:1.8,color:'#666'}},'新建工作台会话，或从选题、Campaign 中选择关联会话。') : conversationHost==='dsh-media-workbench' ? renderConversation() : h('p',{role:'status',style:{padding:16}},'会话区暂被其他工作台占用，请先退出该工作台。'))
         ),chat),
         !state.open && state.binding && h('button',{type:'button',onClick:()=>openWorkbench(false),style:{position:'absolute',top:48,right:20,border:'1px solid #e3e3e0',background:'#f7f7f5',color:'#37352f',borderRadius:6,padding:'7px 12px',cursor:'pointer',fontSize:12}},`内容运营 · ${state.binding.title} · 返回工作台`)
       )

@@ -1,24 +1,67 @@
 {
   "name": "dsh-media-workbench",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "type": "module",
   "description": "DSH Desktop 内容运营工作台",
   "main": "./packages/dsh-media-workbench/index.mjs",
-  "exports": { ".": "./packages/dsh-media-workbench/index.mjs", "./client": "./packages/dsh-media-workbench/client.js", "./package.json": "./package.json" },
-  "files": ["packages/dsh-media-workbench", "README.md", "docs", "patches"],
-  "dsh": {
-    "bundle": { "patch": "./packages/dsh-media-workbench/cordis.patch.yml" },
-    "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-slots", "@deepseek-ai/dsh-client-ui-sidebar", "@deepseek-ai/dsh-client-ui-layout", "@deepseek-ai/dsh-client-ui-conversation", "@deepseek-ai/dsh-api-session-controller", "@deepseek-ai/dsh-api-workspace-controller"] }
+  "exports": {
+    ".": "./packages/dsh-media-workbench/index.mjs",
+    "./client": "./packages/dsh-media-workbench/client.js",
+    "./package.json": "./package.json"
   },
-  "peerDependencies": { "@deepseek-ai/cordis": "^4.0.1", "@deepseek-ai/schemastery": "^3.18.0", "@deepseek-ai/dsh-tools": "^0.1.2-rc.1" },
-  "peerDependenciesMeta": { "@deepseek-ai/cordis": { "optional": true }, "@deepseek-ai/schemastery": { "optional": true }, "@deepseek-ai/dsh-tools": { "optional": true } },
-  "engines": { "node": ">=22" },
+  "files": [
+    "packages/dsh-media-workbench",
+    "README.md",
+    "docs",
+    "patches",
+    "scripts"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./packages/dsh-media-workbench/cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-api-workspace-controller"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/schemastery": "^3.18.0",
+    "@deepseek-ai/dsh-tools": "^0.1.2-rc.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev:media": "node packages/dsh-media-workbench/dev.mjs",
     "check": "npm --prefix packages/dsh-media-workbench run check",
-    "test": "vitest run --exclude test/media-workbench-layout.test.mjs --exclude test/media-workbench-package.test.mjs && node --test test/media-workbench-package.test.mjs",
+    "test": "vitest run --exclude test/media-workbench-layout.test.mjs --exclude test/media-workbench-package.test.mjs --exclude test/media-workbench-host-bridge.test.mjs && node --test test/media-workbench-package.test.mjs test/media-workbench-host-bridge.test.mjs",
     "pack:plugin": "npm pack --pack-destination releases"
   },
-  "dependencies": { "playwright-core": "^1.55.0" },
-  "devDependencies": { "vitest": "4.1.11", "jsdom": "29.1.1" }
+  "dependencies": {
+    "playwright-core": "^1.55.0"
+  },
+  "devDependencies": {
+    "vitest": "4.1.11",
+    "jsdom": "29.1.1"
+  }
 }

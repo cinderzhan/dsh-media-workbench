@@ -2,11 +2,11 @@
 
 `dsh-media-workbench` 是面向单人运营的 DSH Desktop 工作台插件（Phase 1），管理官号视频、达人合作、发布排期及数据复盘。它复用 Harness 会话和公共侧栏，不替换市场、设置或会话系统。多人共享、权限管理和云端持续采集不属于当前版本。
 
-v0.2.1 已通过 Desktop 0.8.1 generation 安装器验证，并在 Desktop 0.8.0 原版 Harness 隔离 Profile 验证业务录入和原生会话导航。本次未安装到用户生产 Profile，也不表示已上架市场或完成所有平台采集验证。
+v0.3.0 已在 Desktop 0.8.1 的隔离 Harness 中验证工作台内原生会话创建、切换和草稿隔离；需配合明确版本限定的宿主适配。未上架 npm 或市场。
 
 ## 四区工作台
 
-工作台采用黑白、少装饰的 Notion 式界面，默认显示必要内容，详情按需展开。原版 DSH Desktop 的会话区提供新建与继续入口，进入原生对话页面后可返回工作台；支持会话承载接口的宿主可在四区布局中直接嵌入对话。
+工作台采用黑白、少装饰的 Notion 式界面，默认显示必要内容，详情按需展开。具备会话承载接口时，右侧直接显示真实 DSH 对话，新建和切换会话保持四区布局。
 
 - 拖动区域标题到另一区域可交换位置；拖动区域之间的分隔线可调整大小。
 - 每个业务窗口拥有独立标签页，tab 只切换当前窗口内的视图，不改变其他窗口，也不负责收起窗口。
@@ -14,9 +14,9 @@ v0.2.1 已通过 Desktop 0.8.1 generation 安装器验证，并在 Desktop 0.8.0
 - 收起保留原有节点、会话和当前草稿；窗口收起状态、标签与布局保存在本机，刷新后恢复。未保存业务草稿不因此获得跨刷新保证。
 - 资料列表默认仅显示标题、状态或平台粉丝，以及必要操作；更多字段和归档等操作在“详情”中。图表保留缺失和延迟提示，次要筛选与数据解释可展开查看。
 - 使用“新增看板”增加业务视图，并在该区域切换或比较数据。看板共享同一份业务记录，新增视图不会复制选题或发布数据。
-- 会话绑定跨业务标签保留；从选题或 Campaign 新建、继续会话时使用真实 Harness 会话。原版宿主通过原生会话页面继续，支持承载接口时可常驻显示。
+- 会话绑定跨业务标签保留；从选题或 Campaign 新建、继续会话时使用真实 Harness 会话。切换后业务视图继续保留。
 
-嵌入模式依赖宿主提供 `conversationHost`、`claimConversationHost(id)` 和 `renderConversation()`。v0.2.1 自动检测接口；不具备接口时使用原生会话导航，无需安装布局补丁。仓库中的旧参考补丁仅用于宿主开发者研究嵌入模式。
+嵌入模式依赖宿主提供 `conversationHost`、`claimConversationHost(id)` 和 `renderConversation()`。v0.3.0 自动检测接口；缺失时禁用新建并显示宿主待适配，仅明确点击“退出工作台并打开普通对话”才离开。Desktop 0.8.1 的版本校验、安装和回退见 [宿主适配说明](../../docs/conversation-host-bridge.md)。这些是过渡接口，不能视为上游正式 SDK。
 
 ## 六个面板
 
@@ -69,7 +69,7 @@ npm --prefix packages/dsh-media-workbench run check
 - 服务端注入 `connection`、`tools`、`agents`，通过宿主连接提供 API。
 - 前端使用 `sidebar.footer.action` 和 `shell.overlay` 扩展点，保留 DSH 公共入口。
 
-可以在包目录执行 `npm pack` 生成本地分发包；在**隔离的开发 Profile** 中按上述机制配置依赖和 `dsh.profile.bundles`，再检查 Entry、前端模块、侧栏入口是否全部加载。正式安装应走目标 DSH 版本支持的插件安装流程，遵守 immutable generation 管理；不要手工覆盖正在使用的生产 generation。本说明不表示该包已发布到 npm 或市场。
+在仓库根目录执行 `npm run pack:plugin` 生成包含宿主适配脚本的分发包；在**隔离的开发 Profile** 中按上述机制配置依赖和 `dsh.profile.bundles`，再检查 Entry、前端模块、侧栏入口是否全部加载。正式安装应走目标 DSH 版本支持的插件安装流程，遵守 immutable generation 管理；不要手工覆盖正在使用的生产 generation。本说明不表示该包已发布到 npm 或市场。
 
 本包附带 [运营 Skill](skills/media-operations/SKILL.md) 作为 Agent 操作说明；实际工具由宿主插件按会话绑定注册，不依赖把 Skill 文本当作权限授予。
 

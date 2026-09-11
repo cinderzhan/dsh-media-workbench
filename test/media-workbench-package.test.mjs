@@ -82,7 +82,7 @@ for (const directory of [root, plugin]) {
   })
 }
 
-test('unmodified host can continue a bound native conversation and dismiss the overlay', async () => {
+test('session switching stays in workbench; unsupported host only exits on explicit user action', async () => {
   let module, snapshot
   const components = new Map()
   const opened = []
@@ -101,7 +101,7 @@ test('unmodified host can continue a bound native conversation and dismiss the o
       throw new Error(`undeclared module request: ${name}`)
     }) } } },
     fetch: async () => ({ ok: true, json: async () => ({ bindings: [binding] }) }),
-    document: {}, location: { origin: 'http://localhost' },
+    document: {}, location: { origin: 'http://localhost' }, localStorage: {getItem:()=>null,setItem:()=>{}},
   })
   module.apply({
     effect: () => {},
@@ -120,12 +120,23 @@ test('unmodified host can continue a bound native conversation and dismiss the o
   function flatten(node) {
     return !node || typeof node !== 'object' ? [] : [node, ...(node.children || []).flatMap(flatten)]
   }
-  const resume = flatten(tree).find(node => node.type === 'button' && node.children.includes('继续关联会话'))
-  assert.ok(resume, 'plain Desktop host must provide a usable native conversation action')
+  const newSession = flatten(tree).find(node => node.type === 'button' && node.children.includes('新建会话'))
+  assert.equal(newSession.props.disabled,true,'unsupported host must not silently redirect new sessions')
+  const resume = flatten(tree).find(node => node.type === 'button' && node.children.includes('退出工作台并打开普通对话'))
+  assert.ok(resume, 'plain host exit requires an explicit action')
   resume.props.onClick()
   const after = Panel({})
   assert.equal(opened.at(-1), binding.sessionId)
   assert.equal(snapshot.binding.sessionId, binding.sessionId)
   assert.equal(snapshot.open, false)
   assert.ok(!flatten(after).some(node => node.type === 'section'), 'workbench must uncover the native conversation')
+  await sidebar.props.onClick()
+  const supported = Panel({conversationHost:'dsh-media-workbench',claimConversationHost:()=>()=>{},renderConversation:()=>h('native-conversation')})
+  const picker=flatten(supported).find(node=>node.type==='select')
+  picker.props.onChange({target:{value:binding.sessionId}})
+  await new Promise(resolve=>setImmediate(resolve))
+  const switched=Panel({conversationHost:'dsh-media-workbench',claimConversationHost:()=>()=>{},renderConversation:()=>h('native-conversation')})
+  assert.equal(snapshot.open,true)
+  assert.equal(snapshot.binding.sessionId,binding.sessionId)
+  assert.ok(flatten(switched).some(node=>node.type==='native-conversation'))
 })

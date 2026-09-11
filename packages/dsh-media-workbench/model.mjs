@@ -141,6 +141,11 @@ export function applyMutation(state, command) {
     }
     const defaults = entity === 'topics' ? { status: 'unselected' } : entity === 'bindings' ? { workbenchId: 'dsh-media-workbench', scope: 'workbench', lastUsedAt: now } : {}
     const row = { ...defaults, ...existing, ...structuredClone(data), id: existing?.id || id || randomUUID(), createdAt: existing?.createdAt || now, updatedAt: now }
+    if (entity === 'topics') {
+      if (present(data.scheduledAt) && (!existing?.scheduledAt || Date.parse(data.scheduledAt) !== Date.parse(existing.scheduledAt))) row.status = 'scheduled'
+      if ('scheduledAt' in data && !present(data.scheduledAt) && row.status === 'scheduled' && data.status !== 'scheduled') row.status = 'unselected'
+      if (row.status === 'scheduled' && !present(row.scheduledAt)) fail('已排期的选题必须选择日期和时间')
+    }
     if (existing) next[entity][next[entity].indexOf(existing)] = row
     else next[entity].push(row)
     validateRecord(next, entity, row)

@@ -142,3 +142,26 @@ describe('media workbench persistence', () => {
     expect((await store.read()).topics[0].title).toBe('Original')
   }))
 })
+
+
+describe('topic schedule state transitions', () => {
+  it('requires a timestamp before setting scheduled and leaves input untouched on failure', () => {
+    const state=seed()
+    expect(()=>applyMutation(state,{action:'upsert',entity:'topics',id:'topic',data:{status:'scheduled'}})).toThrow('日期和时间')
+    expect(state.topics[0].status).toBe('unselected')
+  })
+  it('setting and moving a date schedules the topic, but keeps publication history', () => {
+    let state=seed();const publication=structuredClone(state.publications[0])
+    state=applyMutation(state,{action:'upsert',entity:'topics',id:'topic',data:{scheduledAt:'2026-10-01T09:00:00Z'}})
+    expect(state.topics[0].status).toBe('scheduled')
+    state=applyMutation(state,{action:'upsert',entity:'topics',id:'topic',data:{status:'produced',scheduledAt:'2026-10-01T09:00:00.000Z'}})
+    expect(state.topics[0].status).toBe('produced')
+    state=applyMutation(state,{action:'upsert',entity:'topics',id:'topic',data:{scheduledAt:'2026-10-02T09:00:00Z'}})
+    expect(state.topics[0].status).toBe('scheduled');expect(state.publications[0]).toEqual(publication)
+  })
+  it('clearing a scheduled date returns to unselected', () => {
+    let state=applyMutation(seed(),{action:'upsert',entity:'topics',id:'topic',data:{scheduledAt:'2026-10-01T09:00:00Z'}})
+    state=applyMutation(state,{action:'upsert',entity:'topics',id:'topic',data:{scheduledAt:''}})
+    expect(state.topics[0].status).toBe('unselected')
+  })
+})

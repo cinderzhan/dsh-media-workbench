@@ -16,3 +16,30 @@ html:has(.dock-preview),body.dock-preview{height:100%;overflow:auto}.pane-view>h
 .pane-calendar .calendar-event:hover{filter:brightness(.96)}
 .pane-calendar .legend{opacity:1}
 .pane-calendar .day.dragover{background:#edf3fc}
+/* Spreadsheet surfaces: one record per row, details on demand. */
+.pane-view .table-wrap{border:1px solid var(--line);border-radius:0}
+.pane-view th,.pane-view td{height:36px;padding:7px 10px;border-right:1px solid var(--line);vertical-align:middle}
+.pane-view th:last-child,.pane-view td:last-child{border-right:0}
+.pane-view th{background:#fafafa;color:#626262;position:sticky;top:0;z-index:1}
+.pane-library .table-wrap table{font-size:12px}
+.pane-library td:first-child{min-width:130px;max-width:260px}
+.pane-view button.cell-title{border:0;background:transparent;padding:0;text-align:left;font-size:12px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.6;max-width:260px;font-weight:500}
+.pane-view button.cell-title:hover{text-decoration:underline;text-underline-offset:3px}
+.people{font-size:11px;color:#626262}
+.badge.unselected{background:#f1f1ef;color:#61615b}
+.badge.scheduled{background:#eaf1fd;color:#315b98}
+.badge.produced{background:#fff1d6;color:#805610}
+.badge.published{background:#e8f3eb;color:#2d6842}
+.quick-topic{margin:0 0 10px}
+.quick-topic input{width:100%;border:1px solid var(--line);padding:10px;font-size:12px;background:#fff}
+.quick-topic input:disabled{color:#727272;background:#fafafa}
+.table-empty,.table-footnote{padding:12px 2px;font-size:11px;color:#666}
+.table-footnote{font-size:10px}
+.collection-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.source-filters{display:flex;gap:4px}
+.source-filters button{border-color:transparent;background:transparent;color:#666}
+.source-filters button.filter-active{background:#ededeb;color:#242424}
+.publication-link{display:block;max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#315b98}
+.pane-view .row-actions{flex-wrap:nowrap}
+.pane-view td .row-actions button{border-color:transparent;background:transparent;color:#666}
+.pane-view td .row-actions button:hover{background:#ededeb;color:#222}

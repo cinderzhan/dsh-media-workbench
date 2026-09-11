@@ -6,7 +6,9 @@
 
 ## 下载与安装
 
-在本仓库 Releases 下载 `dsh-media-workbench-0.1.0.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。GitHub 托管不会自动安装插件，也不代表已上架插件市场。
+在本仓库 Releases 下载 `dsh-media-workbench-0.2.0.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。GitHub 托管不会自动安装插件，也不代表已上架插件市场。
+
+v0.2.0 将选题、达人、Campaign 和发布数据整理为紧凑表格。选题输入名称后回车创建，点击名称打开详情；发布数据可筛选官方或达人内容。数据监控支持勾选多条发布记录，以折线图或分组柱状图比较各平台的 24h、72h 和至今数据。至今取最近一次快照，缺失数据保持为空。
 
 在 DSH 中使用需要按对应版本的 Profile 插件流程安装并启用该包，详见 [插件接入说明](packages/dsh-media-workbench/README.md#dsh-插件接入与安装) 与 [宿主插件管理机制](docs/plugin-management.zh.md)。当前未验证通用 Desktop 的一键安装流程。
 

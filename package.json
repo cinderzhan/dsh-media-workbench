@@ -1,7 +1,7 @@
 {
   "name": "dsh-media-workbench-source",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "engines": { "node": ">=22" },
   "scripts": {
@@ -11,5 +11,5 @@
     "pack:plugin": "npm pack ./packages/dsh-media-workbench --pack-destination releases"
   },
   "dependencies": { "playwright-core": "^1.55.0" },
-  "devDependencies": { "vitest": "4.1.11" }
+  "devDependencies": { "vitest": "4.1.11", "jsdom": "29.1.1" }
 }

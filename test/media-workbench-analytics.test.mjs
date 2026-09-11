@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { deriveAnalyticsRows } from '../packages/dsh-media-workbench/public/analytics.js'
+import { deriveAnalyticsRows, deriveComparisonSeries, renderAnalytics } from '../packages/dsh-media-workbench/public/analytics.js'
 
 const filters = { metric: 'views', checkpoint: 'current', platform: '', owner: '', source: '' }
 const publication = (id, patch = {}) => ({ id, title: `作品 ${id}`, platform: 'bilibili', ...patch })
@@ -21,13 +22,13 @@ describe('media workbench analytics snapshot selection', () => {
     expect(result[0].snapshot.capturedAt).toBe('2026-09-11T12:00:00Z')
   })
 
-  it('keeps current, 24h, and 72h nodes independent even when another node is newer', () => {
+  it('uses latest snapshot for current while keeping 24h and 72h matching their nodes', () => {
     const state = { publications: [publication('a')], snapshots: [
       snapshot('a', 110, '2026-09-11T10:00:00Z'),
       snapshot('a', 80, '2026-09-12T10:00:00Z', { checkpoint: '24h', targetAt: '2026-09-10T10:00:00Z' }),
       snapshot('a', 130, '2026-09-13T10:00:00Z', { checkpoint: '72h', targetAt: '2026-09-12T10:00:00Z' }),
     ] }
-    expect(rows(state)[0].value).toBe(110)
+    expect(rows(state)[0].value).toBe(130)
     expect(rows(state, { checkpoint: '24h' })[0].value).toBe(80)
     expect(rows(state, { checkpoint: '72h' })[0].value).toBe(130)
     expect(rows(state, { checkpoint: '24h' })[0].snapshot.targetAt).toBe('2026-09-10T10:00:00Z')
@@ -104,5 +105,57 @@ describe('media workbench analytics snapshot selection', () => {
     ] }
     expect(rows(state)[0].value).toBe(60)
     expect(rows({})).toEqual([])
+  })
+})
+
+describe('selected publication comparisons', () => {
+  it('lets users choose multiple records, switch chart modes, and preserves selection after refresh', () => {
+    const state = { publications: [publication('a'), publication('b', { platform: 'douyin' })], snapshots: [
+      snapshot('a', 10, '2026-09-10T10:00:00Z', { checkpoint: '24h' }),
+      snapshot('a', 100, '2026-09-14T10:00:00Z'),
+      snapshot('b', 50, '2026-09-14T10:00:00Z'),
+    ] }
+    const container = document.createElement('section'); document.body.append(container)
+    renderAnalytics(container, state)
+    expect(container.querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(2)
+    const paths = [...container.querySelectorAll('.analytics-series-chart path')]
+    expect(paths).toHaveLength(2)
+    expect(paths.every(path => !path.getAttribute('d').includes('L'))).toBe(true)
+    const checkbox = container.querySelector('[data-publication-id="b"]')
+    checkbox.click()
+    expect(container.querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(1)
+    ;[...container.querySelectorAll('button')].find(button => button.textContent === '柱状图').click()
+    expect(container.querySelectorAll('.analytics-series-chart rect')).toHaveLength(2)
+    renderAnalytics(container, state)
+    expect(container.querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(1)
+    expect(container.querySelector('.analytics-mode button[aria-pressed=true]').textContent).toBe('柱状图')
+    ;[...container.querySelectorAll('button')].find(button => button.textContent === '清空选择').click()
+    expect(container.querySelector('.analytics-series-chart')).toBeNull()
+    expect(container.textContent).toContain('选择一条或多条内容')
+    container.remove()
+  })
+  it('preserves selected order and separate platforms, represents missing checkpoints as null', () => {
+    const state = { publications: [publication('a'), publication('b', { platform: 'douyin', creatorId: 'c' })], snapshots: [
+      snapshot('a', 0, '2026-09-10T10:00:00Z', { checkpoint: '24h' }),
+      snapshot('a', 100, '2026-09-14T10:00:00Z'),
+      snapshot('b', 30, '2026-09-12T10:00:00Z', { checkpoint: '72h', targetAt: '2026-09-11T10:00:00Z' }),
+    ] }
+    const series = deriveComparisonSeries(state, { ...filters, checkpoint: 'all' }, ['b', 'a', 'a', 'missing'])
+    expect(series.map(item => item.publication.id)).toEqual(['b', 'a'])
+    expect(series[0].points.map(point => point.value)).toEqual([null, 30, 30])
+    expect(series[1].points.map(point => point.value)).toEqual([0, null, 100])
+    expect(series[0].points[1].snapshot.targetAt).toBe('2026-09-11T10:00:00Z')
+    expect(deriveComparisonSeries(state, { ...filters, checkpoint: 'all', owner: 'official' }, ['b', 'a']).map(item => item.publication.id)).toEqual(['a'])
+    expect(deriveComparisonSeries(state, filters, [])).toEqual([])
+  })
+
+  it('applies selected metric, source, and exact checkpoint before generating points', () => {
+    const state = { publications: [publication('a')], snapshots: [
+      snapshot('a', 40, '2026-09-10T10:00:00Z', { checkpoint: '24h', metrics: { likes: 4 } }),
+      snapshot('a', 50, '2026-09-11T10:00:00Z', { checkpoint: '24h', source: 'browser', metrics: { likes: null } }),
+    ] }
+    const scoped = { ...filters, checkpoint: '24h', metric: 'likes' }
+    expect(deriveComparisonSeries(state, scoped, ['a'])[0].points[0].value).toBeNull()
+    expect(deriveComparisonSeries(state, { ...scoped, source: 'manual' }, ['a'])[0].points.map(point => point.value)).toEqual([4])
   })
 })

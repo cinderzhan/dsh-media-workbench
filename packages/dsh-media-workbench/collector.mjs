@@ -42,8 +42,10 @@ export class BrowserCollector {
     if (this.opening) return this.opening
     this.opening = (async () => {
       const { chromium } = await import('playwright-core')
-      this.context = await chromium.launchPersistentContext(this.directory, { channel: 'chrome', headless: false, viewport: { width: 1280, height: 900 }, acceptDownloads: false })
+      this.context = await chromium.launchPersistentContext(this.directory, { channel: 'chrome', chromiumSandbox: true, headless: false, viewport: { width: 1280, height: 900 }, acceptDownloads: false })
       this.context.on('close', () => { this.context = null })
+      const welcome = this.context.pages().find(page => page.url() === 'about:blank')
+      if (welcome) await welcome.setContent('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>内容运营 · 采集浏览器</title><body style="font:16px system-ui;color:#333;max-width:560px;margin:100px auto;padding:24px"><h2>采集浏览器已就绪</h2><p>需要登录时，打开对应平台完成登录，再返回工作台点击采集。</p><p><a href="https://www.bilibili.com/">B站</a> · <a href="https://www.xiaohongshu.com/">小红书</a></p><p style="color:#777;font-size:14px">保持此窗口开启。</p></body></html>').catch(() => {})
     })()
     try { await this.opening } catch { throw new Error('无法打开 Chrome 采集浏览器，请确认本机已安装 Google Chrome。你仍可手动录入指标。') } finally { this.opening = null }
   }

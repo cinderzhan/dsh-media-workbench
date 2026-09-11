@@ -6,16 +6,16 @@
 
 ## 下载与安装
 
-在本仓库 Releases 下载 `dsh-media-workbench-0.4.1.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。v0.4.1 支持直接下拉修改选题状态，选择已排期须确认日期时间；新增或调整排期自动变为已排期。选题详情可以添加发布链接或关联已有未归属发布记录，统一进入数据采集与监控。
+在本仓库 Releases 下载 `dsh-media-workbench-0.4.2.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。v0.4.2 支持直接下拉修改选题状态，选择已排期须确认日期时间；新增或调整排期自动变为已排期。选题详情可以添加发布链接或关联已有未归属发布记录，统一进入数据采集与监控。
 
 v0.2.0 将选题、达人、Campaign 和发布数据整理为紧凑表格。选题输入名称后回车创建，点击名称打开详情；发布数据可筛选官方或达人内容。数据监控支持勾选多条发布记录，以折线图或分组柱状图比较各平台的 24h、72h 和至今数据。至今取最近一次快照，缺失数据保持为空。
 
 仓库为私有。请先登录有权限的 GitHub 账号下载，DSH 不能直接匿名获取私有仓库或 Release 链接。可在终端执行：
 
 ```sh
-gh release download v0.4.1 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
+gh release download v0.4.2 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
 mkdir dsh-media-workbench-install
-tar -xzf dsh-media-workbench-0.4.1.tgz -C dsh-media-workbench-install --strip-components=1
+tar -xzf dsh-media-workbench-0.4.2.tgz -C dsh-media-workbench-install --strip-components=1
 ```
 
 然后在 DSH 中让 Agent **通过插件管理流程安装并启用这个解压目录**，提供它的绝对路径。也可克隆本仓库后提供仓库根目录。安装结束按宿主提示重载；侧栏应出现「内容运营」。仅复制到 plugins 目录不会自动启用。不要直接改写正在使用的 generation。
@@ -27,6 +27,8 @@ tar -xzf dsh-media-workbench-0.4.1.tgz -C dsh-media-workbench-install --strip-co
 已在隔离的 0.8.1 Harness 实测：A/B 会话创建及切换、独立未发送草稿、业务输入与 iframe 保留、仅一个原生输入框、窗口收起恢复、刷新恢复最近会话。普通浏览器预览不含真实 DSH 会话。适配器限定已验证构建；Desktop 升级前需恢复适配，升级后重新核验。
 
 修复页查询 npm 返回 404 表示本插件未在 npm 发布，请从 GitHub 或本地源码更新。
+
+v0.4.2 启用 Chrome 沙箱，消除 `--no-sandbox` 启动警告；新建空白采集页显示就绪说明。关闭旧采集窗口并重启 Desktop 后生效。
 
 ## 会话内采集
 

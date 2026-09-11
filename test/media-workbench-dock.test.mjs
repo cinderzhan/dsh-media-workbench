@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { windowLayout } from '../packages/dsh-media-workbench/public/dock.js'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { JSDOM } from 'jsdom'
+import { createDock, windowLayout } from '../packages/dsh-media-workbench/public/dock.js'
 
 const windows = ['library', 'calendar', 'data', 'chat']
 const ratioCases = [{ x: 69, y: 54, inner: 42 }, { x: 40, y: 28, inner: 28 }, { x: 80, y: 75, inner: 70 }]
@@ -118,5 +119,105 @@ describe('media workbench minimized window layout', () => {
     // Return values do not alias the caller's saved values or later results.
     result.rects.chat[0] = 999
     expect(windowLayout(order, minimized, ratios).rects.chat[0]).toBe(0)
+  })
+})
+
+
+describe('media workbench maximize interactions', () => {
+  let dom, dock, root, resizeCallback
+  const pane = key => root.querySelector(`[aria-label="${{ library: '资料', calendar: '营销日历', data: '数据', chat: 'DSH 会话' }[key]}"]`)
+  const click = selector => root.querySelector(selector).click()
+  const dblclick = element => element.dispatchEvent(new dom.window.MouseEvent('dblclick', { bubbles: true }))
+  const saved = () => JSON.parse(localStorage.getItem('media-dock-v2'))
+  const styles = () => [...root.querySelectorAll('.dock-pane')].map(p => [p.hidden, p.getAttribute('style')])
+  beforeEach(() => {
+    dom = new JSDOM('<main id="host"><div id="root"></div></main>', { url: 'http://localhost' })
+    for (const key of ['window', 'document', 'localStorage', 'location']) vi.stubGlobal(key, dom.window[key])
+    vi.stubGlobal('ResizeObserver', class { constructor(callback) { resizeCallback = callback } observe() {} disconnect() {} })
+    root = document.querySelector('#root')
+    localStorage.setItem('media-dock-v2', JSON.stringify({ order: ['data','chat','library','calendar'], x: 64, y: 61, inner: 38, minimized: { calendar: true } }))
+    dock = createDock(root, { hosted: true, onChat: body => { body.innerHTML = '<textarea aria-label="草稿">未发送草稿</textarea>' } })
+  })
+  afterEach(() => { dock.destroy(); dom.window.close(); vi.unstubAllGlobals() })
+
+  it('fills the board and restores exact geometry, minimized flags, frame and chat nodes', () => {
+    const before = styles(), state = saved(), frames = [...root.querySelectorAll('iframe')], draft = root.querySelector('textarea')
+    dblclick(pane('data').querySelector('.dock-pane-heading'))
+    expect(pane('data').style.width).toBe('calc(100% - 8px)')
+    expect([...root.querySelectorAll('.dock-pane')].filter(p => !p.hidden)).toEqual([pane('data')])
+    expect([...root.querySelectorAll('[data-axis]')].every(bar => bar.hidden)).toBe(true)
+    expect(pane('data').querySelector('.dock-maximize').getAttribute('aria-label')).toBe('还原数据窗口')
+    resizeCallback()
+    const select = pane('data').querySelector('select'); select.value = 'chat'; select.dispatchEvent(new dom.window.Event('change'))
+    root.querySelector('[data-axis=x]').dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }))
+    expect(saved()).toEqual(state)
+    dblclick(pane('data').querySelector('[role=tab]'))
+    expect(styles()).toEqual(before)
+    expect([...root.querySelectorAll('iframe')]).toEqual(frames)
+    expect(root.querySelector('textarea')).toBe(draft)
+    expect(draft.value).toBe('未发送草稿')
+  })
+
+  it('does not resend the selected tab while double-clicking to maximize', () => {
+    const frame = pane('data').querySelector('iframe')
+    const postMessage = vi.spyOn(frame.contentWindow, 'postMessage')
+    const selected = pane('data').querySelector('[role=tab][aria-selected=true]')
+    selected.click(); selected.click(); dblclick(selected)
+    expect(postMessage).not.toHaveBeenCalled()
+    expect(root.querySelector('.dock-board').classList.contains('maximized')).toBe(true)
+    const other = pane('data').querySelector('[role=tab][aria-selected=false]')
+    other.click()
+    expect(postMessage).toHaveBeenCalledWith({ type: 'media-workbench:tab', tab: other.dataset.tab }, location.origin)
+    postMessage.mockClear()
+    frame.onload()
+    expect(postMessage).toHaveBeenCalledWith({ type: 'media-workbench:tab', tab: other.dataset.tab }, location.origin)
+  })
+
+  it('does not maximize on content editing or double-clicking window controls', () => {
+    dblclick(root.querySelector('textarea'))
+    dblclick(pane('data').querySelector('.dock-minimize'))
+    dblclick(pane('data').querySelector('select'))
+    expect(root.querySelector('.dock-board').classList.contains('maximized')).toBe(false)
+    const tab = pane('data').querySelector('[role=tab]'); tab.click(); tab.click(); dblclick(tab)
+    expect(pane('data').hidden).toBe(false)
+    expect(saved().minimized.data).not.toBe(true)
+    expect(root.querySelector('.dock-board').classList.contains('maximized')).toBe(true)
+  })
+
+  it('restores with Escape while focus is in native chat or a same-origin frame', () => {
+    const before = styles()
+    pane('chat').querySelector('.dock-maximize').click()
+    root.querySelector('textarea').dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(styles()).toEqual(before)
+    expect(document.activeElement).toBe(pane('chat').querySelector('.dock-maximize'))
+    const frame = pane('data').querySelector('iframe')
+    frame.onload()
+    pane('data').querySelector('.dock-maximize').click()
+    frame.contentDocument.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(styles()).toEqual(before)
+  })
+
+  it('minimizes a maximized pane and expands another minimized pane into the saved layout', () => {
+    pane('data').querySelector('.dock-maximize').click()
+    pane('data').querySelector('.dock-minimize').click()
+    expect(root.querySelector('.dock-board').classList.contains('maximized')).toBe(false)
+    expect(pane('data').hidden).toBe(true)
+    expect(pane('calendar').hidden).toBe(true)
+    pane('chat').querySelector('.dock-maximize').click()
+    click('[aria-label="展开营销日历窗口"]')
+    expect(root.querySelector('.dock-board').classList.contains('maximized')).toBe(false)
+    expect(pane('calendar').hidden).toBe(false)
+    expect(pane('data').hidden).toBe(true)
+  })
+
+  it('clears maximize on reset and cleans up Escape handlers on destroy', () => {
+    pane('data').querySelector('.dock-maximize').click()
+    ;[...root.querySelectorAll('.dock-toolbar button')].find(b => b.textContent === '重置布局').click()
+    expect(root.querySelector('.dock-board').classList.contains('maximized')).toBe(false)
+    expect([...root.querySelectorAll('.dock-pane')].every(p => !p.hidden)).toBe(true)
+    const frame = pane('data').querySelector('iframe'); frame.onload()
+    const remove = vi.spyOn(frame.contentDocument, 'removeEventListener')
+    dock.destroy()
+    expect(remove).toHaveBeenCalledWith('keydown', expect.any(Function), true)
   })
 })

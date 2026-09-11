@@ -2,3 +2,6 @@
 /* Windows minimize into the toolbar; tabs only switch their content. */
 .dock-pane[hidden],.dock-resize[hidden],.dock-restore[hidden],.dock-restore button[hidden]{display:none!important}
 .dock-restore{display:flex;align-items:center;gap:5px;border-left:1px solid #e5e5e2;padding-left:12px}.dock-restore button{background:#f4f4f2!important;color:#555!important}.dock-restore button::before{content:'＋';margin-right:4px}.dock-minimize{display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#777670!important}.dock-minimize:hover{color:#222!important}.dock-tabs button[aria-selected=true]{background:#f4f4f2}.chat-title{font-size:12px;font-weight:550;padding:0 6px}.dock-toolbar{overflow-x:auto;white-space:nowrap}
+
+/* Maximize stays inside the workbench so host navigation and conversation survive. */
+.dock-maximize{display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#777670!important}.dock-maximize:hover,.dock-maximize[aria-pressed=true]{color:#222!important;background:#f1f1ef}.dock-board.maximized .dock-drag,.dock-board.maximized .dock-move{visibility:hidden}.dock-pane-heading{user-select:none}

@@ -8,7 +8,7 @@ export const CURRENT_REFRESH_MS = 5 * 60000
 const RETRY_MS = 15 * 60000
 
 export const WORKBENCH_ID = 'dsh-media-workbench'
-const assets = new Map([['/api/media-workbench/app', ['index.html', 'text/html']], ['/api/media-workbench/app.js', ['app.js', 'text/javascript']], ['/api/media-workbench/app.css', ['app.css', 'text/css']], ...['dock.js','dock.css','analytics.js','analytics.css','creator-import.js','edit-conflict.js'].map(file=>[`/api/media-workbench/${file}`, [file,file.endsWith('.css')?'text/css':'text/javascript']])])
+const assets = new Map([['/api/media-workbench/app', ['index.html', 'text/html']], ['/api/media-workbench/app.js', ['app.js', 'text/javascript']], ['/api/media-workbench/app.css', ['app.css', 'text/css']], ...['dock.js','dock.css','analytics.js','analytics.css','daily-chart.js','creator-import.js','edit-conflict.js'].map(file=>[`/api/media-workbench/${file}`, [file,file.endsWith('.css')?'text/css':'text/javascript']])])
 export const ROUTES = [...assets.keys(), '/api/media-workbench/state', '/api/media-workbench/mutate', '/api/media-workbench/export', '/api/media-workbench/collect', '/api/media-workbench/browser/open', '/api/media-workbench/context']
 
 export function boundContext(state, sessionId) {

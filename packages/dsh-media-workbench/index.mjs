@@ -1,8 +1,9 @@
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import Schema from '@deepseek-ai/schemastery'
-import { defineTool } from '@deepseek-ai/dsh-tools'
+import { hostModule } from './host-modules.mjs'
 import { createRuntime, boundContext, ROUTES } from './runtime.mjs'
+const { default: Schema } = await hostModule('@deepseek-ai/schemastery')
+const { defineTool } = await hostModule('@deepseek-ai/dsh-tools')
 
 export const name = 'dsh-media-workbench'
 export const inject = ['connection', 'tools', 'agents']

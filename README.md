@@ -6,23 +6,23 @@
 
 ## 下载与安装
 
-在本仓库 Releases 下载 `dsh-media-workbench-0.2.1.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录现在也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。
+在本仓库 Releases 下载 `dsh-media-workbench-0.2.2.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。v0.2.2 修复了源码 link: 安装时的宿主依赖解析问题，已实际恢复本机 Desktop 0.8.1 启动并打开工作台。
 
 v0.2.0 将选题、达人、Campaign 和发布数据整理为紧凑表格。选题输入名称后回车创建，点击名称打开详情；发布数据可筛选官方或达人内容。数据监控支持勾选多条发布记录，以折线图或分组柱状图比较各平台的 24h、72h 和至今数据。至今取最近一次快照，缺失数据保持为空。
 
 仓库为私有。请先登录有权限的 GitHub 账号下载，DSH 不能直接匿名获取私有仓库或 Release 链接。可在终端执行：
 
 ```sh
-gh release download v0.2.1 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
+gh release download v0.2.2 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
 mkdir dsh-media-workbench-install
-tar -xzf dsh-media-workbench-0.2.1.tgz -C dsh-media-workbench-install --strip-components=1
+tar -xzf dsh-media-workbench-0.2.2.tgz -C dsh-media-workbench-install --strip-components=1
 ```
 
 然后在 DSH 中让 Agent **通过插件管理流程安装并启用这个解压目录**，提供它的绝对路径。也可克隆本仓库后提供仓库根目录。安装结束按宿主提示重载；侧栏应出现「内容运营」。仅复制到 plugins 目录不会自动启用。不要直接改写正在使用的 generation。
 
 此机器也可直接使用已经准备好的源码目录：`/Users/cinder/Desktop/Coding/DSHCoding/dsh-media-workbench`。
 
-**兼容性（2026-09-11）：** 已用 Desktop 0.8.1 的真实 generation 安装器成功安装 v0.2.1 包；已用本机 Desktop 0.8.0 原版 Harness，在隔离 Profile 中验证插件加载、选题创建、会话创建与绑定、返回工作台。两版的核心 Harness 包和布局 API 相同；本次未完整启动 0.8.1 Electron 安装程序。
+**兼容性（2026-09-11）：** v0.2.2 已实际重启并打开本机 Desktop 0.8.1，验证源码 link: 插件入口、工作台和选题输入框；已用相同链接方式启动隔离 Harness。此前还通过了 0.8.1 generation 安装器验证及 0.8.0 原版 Harness 的业务与会话导航验证。修复页查询 npm 返回404表示本插件未在 npm 发布，请从 GitHub 或本地源码更新。
 
 原版 0.8.0 / 0.8.1 中，会话通过 DSH 原生页面继续，「返回工作台」按钮切回业务面板，无需修改 Desktop。支持会话承载接口的定制宿主仍可嵌入右侧对话。普通浏览器预览不含真实 DSH 会话。
 

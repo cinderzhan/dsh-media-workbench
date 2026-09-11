@@ -1,8 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, statSync, readdirSync } from 'node:fs'
+import { readFileSync, statSync, readdirSync, mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, resolve, relative, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import vm from 'node:vm'
 
@@ -11,6 +12,23 @@ const plugin = join(root, 'packages/dsh-media-workbench')
 const manifest = directory => JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8'))
 const rootPackage = manifest(root)
 const nestedPackage = manifest(plugin)
+
+test('source outside host ancestry resolves host singleton from active DSH_HOME', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'media-linked-module-'))
+  try {
+    const external = join(directory, 'source'); mkdirSync(external)
+    copyFileSync(join(plugin, 'host-modules.mjs'), join(external, 'host-modules.mjs'))
+    const home = join(directory, 'host')
+    const dependency = join(home, 'profiles/web/node_modules/@deepseek-ai/fixture')
+    mkdirSync(dependency, { recursive: true })
+    writeFileSync(join(dependency, 'package.json'), JSON.stringify({name:'@deepseek-ai/fixture',type:'module',exports:'./index.js'}))
+    writeFileSync(join(dependency, 'index.js'), 'export const identity = "host-singleton"')
+    const script = `const {hostModule}=await import(${JSON.stringify(pathToFileURL(join(external,'host-modules.mjs')).href)}); console.log((await hostModule('@deepseek-ai/fixture')).identity)`
+    assert.equal(execFileSync(process.execPath, ['--input-type=module','-e',script], {env:{...process.env,DSH_HOME:home},encoding:'utf8'}).trim(), 'host-singleton')
+    writeFileSync(join(dependency, 'index.js'), 'throw new Error("broken-host-module")')
+    assert.throws(() => execFileSync(process.execPath, ['--input-type=module','-e',script], {env:{...process.env,DSH_HOME:home},stdio:'pipe'}), /broken-host-module/)
+  } finally { rmSync(directory,{recursive:true,force:true}) }
+})
 
 test('repository and standalone package both expose the installable DSH bundle', () => {
   assert.equal(rootPackage.name, nestedPackage.name)

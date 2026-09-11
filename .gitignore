@@ -1,0 +1,7 @@
+node_modules/
+doc/
+releases/*.tgz
+coverage/
+.DS_Store
+.env*
+*.log

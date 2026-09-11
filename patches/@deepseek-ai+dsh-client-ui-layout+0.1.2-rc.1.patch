@@ -1,0 +1,59 @@
+diff --git a/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js b/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js
+index 31e3fdf..b1dee04 100644
+--- a/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js
++++ b/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js
+@@ -11,6 +11,7 @@
+ 		* LG breakpoint); a manual toggle below it re-expands over the squeezed center
+ 		* (stores.ts narrowExpanded). */
+ 		const SIDEBAR_AUTO_COLLAPSE = 1024;
++		const COLLAPSED_SIDEBAR_WIDTH = navigator.userAgent.includes("Macintosh") ? 80 : 56;
+ 		/**
+ 		* Clamp a panel width into its contract range.
+ 		* @param px - requested width.
+@@ -32,7 +33,7 @@
+ 		* @returns resolved widths; details 0 means visually closed (never unmounted), while a closed sidebar keeps its compact rail.
+ 		*/
+ 		function computeColumns(viewport, sidebar, details) {
+-			const s = sidebar === 0 ? 56 : clampWidth(sidebar, 264, 420);
++			const s = sidebar === 0 ? COLLAPSED_SIDEBAR_WIDTH : clampWidth(sidebar, 264, 420);
+ 			const d0 = details === 0 ? 0 : clampWidth(details, 300, 520);
+ 			if (s + d0 + 640 <= viewport) return {
+ 				sidebar: s,
+@@ -173,6 +174,23 @@
+ 		}
+ 		/** The three-column frame (see module doc). */
+ 		function AppFrame({ useStore, useSessions, actions, renderSlot, SessionProvider, t }) {
++			// A shell extension may host the single native conversation surface.
++			// The returned lease releases only its own claim; competing hosts cannot steal it.
++			const [conversationHost, setConversationHost] = (0, react.useState)(null);
++			const conversationLease = (0, react.useRef)(null);
++			const claimConversationHost = (0, react.useCallback)((id) => {
++				if (typeof id !== "string" || !id.trim()) throw new TypeError("conversation host id must be a non-empty string");
++				if (conversationLease.current !== null) return null;
++				const lease = { id };
++				conversationLease.current = lease;
++				setConversationHost(id);
++				return () => {
++					if (conversationLease.current !== lease) return;
++					conversationLease.current = null;
++					setConversationHost(null);
++				};
++			}, []);
++			const renderConversation = (0, react.useCallback)(() => renderSlot("conversation", {}), [renderSlot]);
+ 			const panels = useStore((s) => s);
+ 			const detailsSession = useSessions((s) => {
+ 				const current = s.current;
+@@ -255,11 +273,11 @@
+ 							width: cols.sidebar
+ 						})
+ 					}),
+-					(0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(CenterColumn, { children: renderSlot("conversation", {}) }), (0, react_jsx_runtime.jsx)(DetailsColumn, { children: (0, react_jsx_runtime.jsx)(SessionProvider, { children: renderSlot("details", {}) }) })] }),
++					(0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(CenterColumn, { children: conversationHost === null ? renderConversation() : null }), (0, react_jsx_runtime.jsx)(DetailsColumn, { children: (0, react_jsx_runtime.jsx)(SessionProvider, { children: renderSlot("details", {}) }) })] }),
+ 					(0, react_jsx_runtime.jsx)("div", {
+ 						className: AppFrame_module_css_default.overlayLayer,
+ 						"data-shell-overlay": true,
+-						children: renderSlot("shell.overlay", {})
++						children: renderSlot("shell.overlay", { conversationHost, claimConversationHost, renderConversation })
+ 					}),
+ 					!sidebarCollapsed && (0, react_jsx_runtime.jsx)(DragHandle, {
+ 						side: "sidebar",

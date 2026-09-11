@@ -49,3 +49,11 @@ select.topic-status{width:auto;min-width:90px;max-width:140px;cursor:pointer;bor
 .header-status{width:100%;min-width:110px;border:0;background:transparent;padding:0;font:inherit;color:inherit;cursor:pointer}.people-combobox{position:relative}.people-combobox input{padding-right:30px}.people-toggle{position:absolute;right:2px;top:2px;border:0;background:transparent;padding:8px}.people-options{position:absolute;z-index:10;top:100%;left:0;right:0;max-height:180px;overflow:auto;border:1px solid #ddd;background:#fff;box-shadow:0 4px 12px #0000000d;border-radius:4px}.people-options button{display:block;width:100%;text-align:left;border:0;border-radius:0;background:#fff;padding:8px 10px}.people-options button:hover,.people-options button[aria-selected=true]{background:#f1f1ef}.people-options p{padding:8px;color:#777;font-size:12px}
 
 .daily-trends{margin-bottom:20px}.daily-legend{display:flex;flex-wrap:wrap;gap:10px 18px;margin:4px 0 12px;font-size:12px}.daily-legend label{display:flex;align-items:center;gap:5px;cursor:pointer}.daily-legend input{margin:0;accent-color:#444}
+
+.pane-view.compact-list-toolbar main{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 6px}
+.pane-view.compact-list-toolbar #toolbar{grid-column:1;grid-row:1;min-width:0;margin:0;gap:4px;flex-wrap:nowrap}
+.pane-view.compact-list-toolbar #toolbar input{width:0;min-width:0;flex:1 1 0}
+.pane-view.compact-list-toolbar .page-heading{grid-column:2;grid-row:1;margin:0;gap:0;flex-wrap:nowrap}
+.pane-view.compact-list-toolbar #actions{gap:4px;flex-wrap:nowrap}
+.pane-view.compact-list-toolbar #toolbar button,.pane-view.compact-list-toolbar #actions button,.pane-view.compact-list-toolbar #actions .button{flex-shrink:0;white-space:nowrap}
+.pane-view.compact-list-toolbar #content{grid-column:1/-1;min-width:0}

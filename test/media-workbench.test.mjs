@@ -147,7 +147,7 @@ describe('media workbench persistence', () => {
 describe('topic schedule state transitions', () => {
   it('requires a timestamp before setting scheduled and leaves input untouched on failure', () => {
     const state=seed()
-    expect(()=>applyMutation(state,{action:'upsert',entity:'topics',id:'topic',data:{status:'scheduled'}})).toThrow('日期和时间')
+    expect(()=>applyMutation(state,{action:'upsert',entity:'topics',id:'topic',data:{status:'scheduled'}})).toThrow('发布日期')
     expect(state.topics[0].status).toBe('unselected')
   })
   it('setting and moving a date schedules the topic, but keeps publication history', () => {

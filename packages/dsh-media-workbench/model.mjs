@@ -144,7 +144,7 @@ export function applyMutation(state, command) {
     if (entity === 'topics') {
       if (present(data.scheduledAt) && (!existing?.scheduledAt || Date.parse(data.scheduledAt) !== Date.parse(existing.scheduledAt))) row.status = 'scheduled'
       if ('scheduledAt' in data && !present(data.scheduledAt) && row.status === 'scheduled' && data.status !== 'scheduled') row.status = 'unselected'
-      if (row.status === 'scheduled' && !present(row.scheduledAt)) fail('已排期的选题必须选择日期和时间')
+      if (row.status === 'scheduled' && !present(row.scheduledAt)) fail('已排期的选题必须选择发布日期')
     }
     if (existing) next[entity][next[entity].indexOf(existing)] = row
     else next[entity].push(row)

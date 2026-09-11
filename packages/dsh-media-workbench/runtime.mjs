@@ -87,5 +87,5 @@ export function createRuntime(root, options = {}) {
       return Response.json({ error: error.message, code: error.code }, { status: error.code === 'REVISION_CONFLICT' ? 409 : 400 })
     }
   }
-  return { store, handle, collect, tick, async start() { await mkdir(root, { recursive: true }); await store.read() }, async dispose() { stopped = true; await collector.close(); await drained } }
+  return { store, handle, collect, tick, async openBrowser() { if (stopped) throw new Error('工作台已停止。'); await collector.open(); return { status: 'ok', message: '已打开本机独立 Chrome 采集浏览器，请在其中完成平台登录后再采集。' } }, async start() { await mkdir(root, { recursive: true }); await store.read() }, async dispose() { stopped = true; await collector.close(); await drained } }
 }

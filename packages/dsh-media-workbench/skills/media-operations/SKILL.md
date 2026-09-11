@@ -122,4 +122,4 @@ description: 在已绑定内容运营工作台的 DSH 会话中，通过 media_w
 - `quote` 是达人参考报价，`cost` 是发布交付实际费用。Campaign 费用只汇总 `cost`，缺项说明费用未完整。跨平台套餐不得在每条作品重复记全额。
 - 归档保留引用和历史；常规分析排除 `archivedAt` 非空记录，用户明确要求历史时再纳入。
 - 浏览器采集是实验能力，仅启用 B站/小红书适配；抖音及微信两平台手动补录。实验采集只接受含作品 ID 的完整 HTTPS 作品 URL，并核对最终页面作品 ID；短链接需先展开为完整作品链接，不得将跳转后的其他作品数据归入原记录。用户需要本机醒着、宿主运行、独立 Chrome 开启及必要的登录状态。不要承诺端到端采集已验证、精确到点、电脑关闭后仍运行或已安装到生产环境。
-- 用户需要采集时可指向面板中的“打开采集浏览器”和“尝试自动采集”。本 Skill 的两个工具没有自动采集命令，不要发明 `collect` action。
+- 用户需要采集时可指向面板中的“打开采集浏览器”和“尝试自动采集”。会话中使用 `media_workbench_collect`：先 `action=open_browser, publicationId=""` 打开本机独立 Chrome，用户完成必要登录后，调用 `action=collect, publicationId=已有发布记录ID`。此工具保存当前快照；不要向 `media_workbench_update` 发送 collect action。不要用通用 `web_fetch` 替代本机指标采集。失败按实际 message 报告，不能仅凭 non-public IP 错误断言国内 CDN 为私网、工具位于模型服务器或 DNS 原因。

@@ -78,13 +78,13 @@ describe('media workbench experimental visible-page collector', () => {
 
   it('does not inspect Douyin body text or open a page for automatic collection', async () => {
     const { collector, page } = collectorFixture('https://www.douyin.com/video/123456789')
-    await expect(collector.collect({ platform: 'douyin', url: 'https://www.douyin.com/video/123456789' })).rejects.toThrow('手动录入或导入报表')
+    await expect(collector.collect({ platform: 'douyin', url: 'https://www.douyin.com/video/123456789' })).rejects.toThrow('手动录入')
     expect(collector.context.newPage).not.toHaveBeenCalled()
     expect(page.evaluate).not.toHaveBeenCalled()
   })
 
   it.each([
-    ['douyin', 'https://www.douyin.com/video/123456789', '手动录入或导入报表'],
+    ['douyin', 'https://www.douyin.com/video/123456789', '手动录入'],
     ['bilibili', 'https://b23.tv/short', '完整链接']
   ])('returns manual_required for %s through runtime without appending a snapshot', async (platform, url, message) => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-media-collector-'))
@@ -100,4 +100,11 @@ describe('media workbench experimental visible-page collector', () => {
       expect(collector.context.newPage).not.toHaveBeenCalled()
     } finally { await runtime.dispose(); await rm(root, { recursive: true, force: true }) }
   })
+})
+
+
+it('reports unsupported platforms before asking to open the browser', async () => {
+  const collector = new BrowserCollector('/unused')
+  for (const platform of ['douyin','weixin_channels','weixin_article']) await expect(collector.collect({platform})).rejects.toThrow('手动录入')
+  await expect(collector.collect({platform:'bilibili'})).rejects.toThrow('打开采集浏览器')
 })

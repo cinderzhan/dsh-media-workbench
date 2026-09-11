@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { BrowserCollector } from '../packages/dsh-media-workbench/collector.mjs'
 import { apply } from '../packages/dsh-media-workbench/index.mjs'
 import { boundContext, createRuntime } from '../packages/dsh-media-workbench/runtime.mjs'
 
@@ -316,6 +317,13 @@ describe('media workbench Harness registration', () => {
       expect(ctx.tools.register).not.toHaveBeenCalled()
       const reader = tools.get('media_workbench_read')
       const updater = tools.get('media_workbench_update')
+      const collector = tools.get('media_workbench_collect')
+      expect(collector).toBeDefined()
+      await expect(collector.execute({action:'open_browser',publicationId:''},{agent:{id:'another-session'}})).rejects.toThrow()
+      await expect(collector.execute({action:'unknown',publicationId:''},{agent:{id:'actual-agent-id'}})).rejects.toThrow('open_browser')
+      const failed = JSON.parse(await collector.execute({action:'collect',publicationId:'missing'},{agent:{id:'actual-agent-id'}}))
+      expect(failed).toMatchObject({status:'manual_required',message:'发布记录不存在。'})
+
       const exec = { agent: { id: 'actual-agent-id', sessionId: 'wrong-legacy-field' } }
       const context = JSON.parse(await reader.execute({}, exec))
       expect(context.binding.sessionId).toBe('actual-agent-id')
@@ -324,6 +332,16 @@ describe('media workbench Harness registration', () => {
       expect(updated.topics[0].title).toBe('Agent entry')
       await expect(updater.execute({ command: JSON.stringify({ action: 'upsert', entity: 'topics', expectedRevision: updated.revision, data: { title: 'Other session entry' } }) }, { agent: { id: 'another-session' } })).rejects.toThrow('未绑定')
       await expect(updater.execute({ command: JSON.stringify({ action: 'upsert', entity: 'bindings', expectedRevision: updated.revision, data: { sessionId: 'another-session', title: 'Forbidden' } }) }, exec)).rejects.toThrow('不可修改会话绑定')
+      const openBrowser = vi.spyOn(BrowserCollector.prototype,'open').mockResolvedValue()
+      const collectPage = vi.spyOn(BrowserCollector.prototype,'collect').mockResolvedValue({metrics:{likes:7}})
+      try {
+        expect(JSON.parse(await collector.execute({action:'open_browser',publicationId:''},exec)).status).toBe('ok')
+        expect(openBrowser).toHaveBeenCalledOnce()
+        await mutate({action:'upsert',entity:'publications',id:'sample',data:{title:'Sample',platform:'bilibili',url:'https://www.bilibili.com/video/BV1niYu6LEtX/'}})
+        expect(JSON.parse(await collector.execute({action:'collect',publicationId:'sample'},exec)).status).toBe('ok')
+        const after = JSON.parse(await reader.execute({},exec))
+        expect(after.data.snapshots[0]).toMatchObject({publicationId:'sample',source:'browser',checkpoint:'current',metrics:{likes:7}})
+      } finally {openBrowser.mockRestore();collectPage.mockRestore()}
       expect((await mutate({ action: 'archive', entity: 'bindings', id: context.binding.id })).status).toBe(200)
       expect(tools.size).toBe(0)
       await expect(reader.execute({}, exec)).rejects.toThrow('未绑定')

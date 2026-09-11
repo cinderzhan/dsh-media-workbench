@@ -48,9 +48,9 @@ export class BrowserCollector {
     try { await this.opening } catch { throw new Error('无法打开 Chrome 采集浏览器，请确认本机已安装 Google Chrome。你仍可手动录入指标。') } finally { this.opening = null }
   }
   async collect(publication) {
+    if (publication.platform === 'douyin') throw new Error('抖音页面指标暂无法可靠确认作品归属，请手动录入。')
+    if (!['bilibili', 'xiaohongshu'].includes(publication.platform)) throw new Error('此平台暂使用手动录入，自动采集尚未验证。')
     if (!this.context) throw new Error('请先打开采集浏览器；必要时在其中登录对应平台，也可直接手动补录。')
-    if (publication.platform === 'douyin') throw new Error('抖音页面指标暂无法可靠确认作品归属，请手动录入或导入报表。')
-    if (!['bilibili', 'xiaohongshu'].includes(publication.platform)) throw new Error('此平台暂使用手动录入或报表导入，自动采集尚未验证。')
     const { url, id } = workUrl(publication.url, publication.platform)
     const page = await this.context.newPage()
     const verifyWork = () => {

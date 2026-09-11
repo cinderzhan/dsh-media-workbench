@@ -32,9 +32,20 @@ export async function apply(ctx, config = {}) {
       return JSON.stringify(await runtime.store.mutate(command))
     }
   })
+  const collectTool = defineTool({
+    name: 'media_workbench_collect', description: '使用本机独立 Chrome 采集已记录作品并保存当前快照，不使用 web_fetch。仅 B站、小红书为实验支持；抖音、视频号、公众号需手动补录。先 media_workbench_read 获取 publicationId，action=open_browser 打开浏览器供用户登录，再 action=collect。失败只报告实际工具错误，不推断 DNS、CDN 或服务器位置。',
+    parameters: { action: { type: 'string', description: 'open_browser 或 collect' }, publicationId: { type: 'string', description: 'collect 时填写已记录的 publication id；open_browser 时传空字符串' } }, output,
+    async execute(args, exec) {
+      exec.signal?.throwIfAborted()
+      boundContext(await runtime.store.read(), exec.agent?.id)
+      if (args.action === 'open_browser') return JSON.stringify(await runtime.openBrowser())
+      if (args.action !== 'collect' || typeof args.publicationId !== 'string' || !args.publicationId.trim()) throw new Error('请使用 open_browser 或 collect，并为 collect 提供 publicationId。')
+      return JSON.stringify(await runtime.collect(args.publicationId))
+    }
+  })
   function attach(agent) {
     if (!boundIds.has(agent.id) || mounted.has(agent.id)) return
-    const disposers = [agent.ctx.tools.register(readTool), agent.ctx.tools.register(updateTool)]
+    const disposers = [agent.ctx.tools.register(readTool), agent.ctx.tools.register(updateTool), agent.ctx.tools.register(collectTool)]
     mounted.set(agent.id, disposers)
   }
   boundIds = new Set((await runtime.store.read()).bindings.filter(b => !b.archivedAt).map(b => b.sessionId))

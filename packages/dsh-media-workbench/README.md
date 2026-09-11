@@ -35,10 +35,10 @@
 
 ## 本地开发
 
-在仓库根目录使用 Node.js 22 或以上版本，按仓库锁文件安装开发依赖后启动：
+在独立仓库根目录使用 Node.js 22 或以上版本，安装开发依赖后启动：
 
 ```sh
-npm ci
+npm install
 npm run dev:media
 ```
 

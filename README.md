@@ -17,7 +17,7 @@
 需要 Node.js 22 或以上版本：
 
 ```sh
-npm ci
+npm install
 npm run dev:media
 ```
 

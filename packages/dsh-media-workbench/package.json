@@ -1,6 +1,6 @@
 {
   "name": "dsh-media-workbench",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "自媒体工作台：选题、达人、Campaign、排期、数据与会话",
   "main": "./index.mjs",
@@ -11,6 +11,7 @@
   "scripts": { "dev": "node dev.mjs", "check": "node --check index.mjs && node --check client.js && node --check public/app.js" },
   "dependencies": { "playwright-core": "^1.55.0" },
   "peerDependencies": { "@deepseek-ai/cordis": "*", "@deepseek-ai/schemastery": "*", "@deepseek-ai/dsh-tools": "*" },
+  "peerDependenciesMeta": { "@deepseek-ai/cordis": { "optional": true }, "@deepseek-ai/schemastery": { "optional": true }, "@deepseek-ai/dsh-tools": { "optional": true } },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": { "platform": "web", "inject": ["@deepseek-ai/dsh-client-ui-slots", "@deepseek-ai/dsh-client-ui-sidebar", "@deepseek-ai/dsh-client-ui-layout", "@deepseek-ai/dsh-client-ui-conversation", "@deepseek-ai/dsh-api-session-controller", "@deepseek-ai/dsh-api-workspace-controller"] }

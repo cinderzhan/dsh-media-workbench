@@ -6,13 +6,25 @@
 
 ## 下载与安装
 
-在本仓库 Releases 下载 `dsh-media-workbench-0.2.0.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。GitHub 托管不会自动安装插件，也不代表已上架插件市场。
+在本仓库 Releases 下载 `dsh-media-workbench-0.2.1.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录现在也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。
 
 v0.2.0 将选题、达人、Campaign 和发布数据整理为紧凑表格。选题输入名称后回车创建，点击名称打开详情；发布数据可筛选官方或达人内容。数据监控支持勾选多条发布记录，以折线图或分组柱状图比较各平台的 24h、72h 和至今数据。至今取最近一次快照，缺失数据保持为空。
 
-在 DSH 中使用需要按对应版本的 Profile 插件流程安装并启用该包，详见 [插件接入说明](packages/dsh-media-workbench/README.md#dsh-插件接入与安装) 与 [宿主插件管理机制](docs/plugin-management.zh.md)。当前未验证通用 Desktop 的一键安装流程。
+仓库为私有。请先登录有权限的 GitHub 账号下载，DSH 不能直接匿名获取私有仓库或 Release 链接。可在终端执行：
 
-**兼容性：右侧嵌入的原生 DSH 会话需要 Desktop 提供会话承载接口。** 本仓库附带基于 `@deepseek-ai/dsh-client-ui-layout@0.1.2-rc.1` 的 [宿主参考补丁](patches/@deepseek-ai+dsh-client-ui-layout+0.1.2-rc.1.patch)。它应由 Desktop 维护者集成到匹配版本，不会随插件包自动应用；其他版本需要重新适配。普通浏览器预览只有业务窗口和会话空态。
+```sh
+gh release download v0.2.1 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
+mkdir dsh-media-workbench-install
+tar -xzf dsh-media-workbench-0.2.1.tgz -C dsh-media-workbench-install --strip-components=1
+```
+
+然后在 DSH 中让 Agent **通过插件管理流程安装并启用这个解压目录**，提供它的绝对路径。也可克隆本仓库后提供仓库根目录。安装结束按宿主提示重载；侧栏应出现「内容运营」。仅复制到 plugins 目录不会自动启用。不要直接改写正在使用的 generation。
+
+此机器也可直接使用已经准备好的源码目录：`/Users/cinder/Desktop/Coding/DSHCoding/dsh-media-workbench`。
+
+**兼容性（2026-09-11）：** 已用 Desktop 0.8.1 的真实 generation 安装器成功安装 v0.2.1 包；已用本机 Desktop 0.8.0 原版 Harness，在隔离 Profile 中验证插件加载、选题创建、会话创建与绑定、返回工作台。两版的核心 Harness 包和布局 API 相同；本次未完整启动 0.8.1 Electron 安装程序。
+
+原版 0.8.0 / 0.8.1 中，会话通过 DSH 原生页面继续，「返回工作台」按钮切回业务面板，无需修改 Desktop。支持会话承载接口的定制宿主仍可嵌入右侧对话。普通浏览器预览不含真实 DSH 会话。
 
 ## 本地预览
 

@@ -8,6 +8,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     const frames = new Set()
     let bindings = new Map()
     let lastCurrent
+    let canEmbedConversation = false
     const change = patch => { current = { ...current, ...patch }; listeners.forEach(fn => fn()) }
     const subscribe = fn => { listeners.add(fn); return () => listeners.delete(fn) }
     const request = async (path, data) => {
@@ -52,7 +53,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
           await request('mutate', { action: 'bindSession', data: { sessionId, scope, ...(entityId ? { entityId } : {}), title, lastUsedAt: new Date().toISOString() } })
         }
         ctx.sessions.open(sessionId)
-        change({ binding, open: true })
+        change({ binding, open: canEmbedConversation })
         return { sessionId, scope, entityId }
       } finally { change({ busy: false }) }
     }
@@ -91,6 +92,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
       return h('button', { type: 'button', title: '内容运营工作台', 'aria-label': '内容运营工作台', onClick: () => openWorkbench(true), style: { width: '100%', minHeight: 34, display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', border: 0, borderRadius: 7, background: state.open ? 'var(--dsw-alias-interactive-bg-hover,#eef2f7)' : 'transparent', color: 'inherit', cursor: 'pointer', textAlign: 'left' } }, h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, 'aria-hidden': true }, h('rect', { x: 3, y: 4, width: 18, height: 17, rx: 2 }), h('path', { d: 'M3 9h18M8 2v4m8-4v4M7 13h3m4 0h3m-10 4h3' })), wide !== false && '内容运营')
     }
     function Panel({ conversationHost, claimConversationHost, renderConversation }) {
+      canEmbedConversation = typeof claimConversationHost === 'function' && typeof renderConversation === 'function'
       const state = React.useSyncExternalStore(subscribe, () => current)
       const [left, setLeft] = React.useState(280)
       const [chat, setChat] = React.useState(null)
@@ -128,7 +130,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
           h('div',{style:{padding:'6px 10px',display:'flex',alignItems:'center',gap:8,borderBottom:'1px solid #ededeb',fontSize:11}},
             h('span',{style:{flex:1}},state.binding ? `归属：${state.binding.title}` : '选择或新建工作台会话'),
             h('button',{type:'button',onClick:()=>bind({intent:'new'}).catch(error=>change({error:error.message})),disabled:state.busy},'新建会话')),
-          h('div',{style:{position:'relative',flex:1,minHeight:0,minWidth:0,display:'flex',flexDirection:'column'}},!state.binding ? h('p',{style:{padding:20,fontSize:12,lineHeight:1.8,color:'#777670'}},'先新建工作台会话，或从选题、Campaign 中选择关联会话。普通会话不会自动归属此工作台。') : conversationHost==='dsh-media-workbench' && renderConversation ? renderConversation() : h('p',{style:{padding:16}},'当前宿主尚未提供常驻会话接口，请更新 Desktop 的布局插件。'))
+          h('div',{style:{position:'relative',flex:1,minHeight:0,minWidth:0,display:'flex',flexDirection:'column'}},!state.binding ? h('p',{style:{padding:20,fontSize:12,lineHeight:1.8,color:'#666'}},'新建工作台会话，或从选题、Campaign 中选择关联会话。') : conversationHost==='dsh-media-workbench' && renderConversation ? renderConversation() : h('div',{style:{padding:16,fontSize:12,lineHeight:1.8}},h('p',null,'此版本在 DSH 原生会话页面继续对话，内容与会话绑定会保留。'),h('button',{type:'button',onClick:()=>{ctx.sessions.open(state.binding.sessionId);change({open:false})}},'继续关联会话')))
         ),chat),
         !state.open && state.binding && h('button',{type:'button',onClick:()=>openWorkbench(false),style:{position:'absolute',top:48,right:20,border:'1px solid #e3e3e0',background:'#f7f7f5',color:'#37352f',borderRadius:6,padding:'7px 12px',cursor:'pointer',fontSize:12}},`内容运营 · ${state.binding.title} · 返回工作台`)
       )

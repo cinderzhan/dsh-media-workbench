@@ -1,6 +1,6 @@
 {
   "name": "dsh-media-workbench",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "description": "DSH Desktop 内容运营工作台",
   "main": "./packages/dsh-media-workbench/index.mjs",
@@ -54,7 +54,7 @@
   "scripts": {
     "dev:media": "node packages/dsh-media-workbench/dev.mjs",
     "check": "npm --prefix packages/dsh-media-workbench run check",
-    "test": "vitest run --exclude test/media-workbench-layout.test.mjs --exclude test/media-workbench-package.test.mjs --exclude test/media-workbench-host-bridge.test.mjs && node --test test/media-workbench-package.test.mjs test/media-workbench-host-bridge.test.mjs",
+    "test": "vitest run --exclude test/media-workbench-layout.test.mjs --exclude test/media-workbench-package.test.mjs --exclude test/media-workbench-host-bridge.test.mjs --exclude test/media-workbench-sidebar.test.mjs && node --test test/media-workbench-package.test.mjs test/media-workbench-host-bridge.test.mjs test/media-workbench-sidebar.test.mjs",
     "pack:plugin": "npm pack --pack-destination releases"
   },
   "dependencies": {

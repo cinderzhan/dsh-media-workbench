@@ -6,16 +6,16 @@
 
 ## 下载与安装
 
-在本仓库 Releases 下载 `dsh-media-workbench-0.3.0.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。v0.3.0 将新建、切换会话保留在右侧原生会话窗口，业务面板继续保留。
+在本仓库 Releases 下载 `dsh-media-workbench-0.3.1.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。v0.3.1 修复侧栏展开、收起和调整宽度时工作台与导航重叠的问题；会话继续保留在右侧原生会话窗口。
 
 v0.2.0 将选题、达人、Campaign 和发布数据整理为紧凑表格。选题输入名称后回车创建，点击名称打开详情；发布数据可筛选官方或达人内容。数据监控支持勾选多条发布记录，以折线图或分组柱状图比较各平台的 24h、72h 和至今数据。至今取最近一次快照，缺失数据保持为空。
 
 仓库为私有。请先登录有权限的 GitHub 账号下载，DSH 不能直接匿名获取私有仓库或 Release 链接。可在终端执行：
 
 ```sh
-gh release download v0.3.0 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
+gh release download v0.3.1 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
 mkdir dsh-media-workbench-install
-tar -xzf dsh-media-workbench-0.3.0.tgz -C dsh-media-workbench-install --strip-components=1
+tar -xzf dsh-media-workbench-0.3.1.tgz -C dsh-media-workbench-install --strip-components=1
 ```
 
 然后在 DSH 中让 Agent **通过插件管理流程安装并启用这个解压目录**，提供它的绝对路径。也可克隆本仓库后提供仓库根目录。安装结束按宿主提示重载；侧栏应出现「内容运营」。仅复制到 plugins 目录不会自动启用。不要直接改写正在使用的 generation。

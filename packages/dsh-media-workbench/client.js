@@ -102,9 +102,22 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
         const overlay = document.querySelector('[data-shell-overlay]')
         const frame = overlay?.parentElement
         if (!frame) return
-        const measure = () => { const width = Number.parseFloat(getComputedStyle(frame).gridTemplateColumns.split(' ')[0]); if (Number.isFinite(width)) setLeft(width) }
-        const resize = new ResizeObserver(measure); resize.observe(frame)
-        const mutations = new MutationObserver(measure); mutations.observe(frame, { attributes: true, attributeFilter: ['style'] }); measure()
+        // The grid animates without resizing its frame. Track the sidebar itself.
+        const sidebar = frame.querySelector('[data-slot="sidebar"]')?.parentElement || frame.firstElementChild
+        const measure = () => {
+          const bounds = overlay.getBoundingClientRect()
+          const scale = overlay.offsetWidth > 0 ? bounds.width / overlay.offsetWidth : 1
+          const width = sidebar && sidebar !== overlay
+            ? (sidebar.getBoundingClientRect().right - bounds.left) / (scale || 1)
+            : Number.parseFloat(getComputedStyle(frame).gridTemplateColumns.split(' ')[0])
+          if (Number.isFinite(width)) setLeft(Math.max(0, width))
+        }
+        const resize = new ResizeObserver(measure)
+        resize.observe(frame); resize.observe(overlay)
+        if (sidebar && sidebar !== overlay) resize.observe(sidebar)
+        const mutations = new MutationObserver(measure)
+        mutations.observe(frame, { attributes: true, attributeFilter: ['style', 'class', 'data-sidebar-collapsed'] })
+        measure()
         return () => { resize.disconnect(); mutations.disconnect() }
       }, [])
       React.useEffect(() => {

@@ -1,8 +1,8 @@
 export const dailyMetrics = [
-  {key:'downloads',label:'下载量',color:'#527a95'},
-  {key:'stars',label:'新增 GitHub Star',color:'#bd9364'},
-  {key:'groupJoins',label:'加群人数',color:'#6f8f7b'},
-  {key:'leads',label:'线索人数',color:'#9180a6'},
+  {key:'downloads',label:'下载量',color:'#5B6CFF'},
+  {key:'stars',label:'新增 GitHub Star',color:'#F0A43A'},
+  {key:'groupJoins',label:'加群人数',color:'#12A594'},
+  {key:'leads',label:'线索人数',color:'#A56EFF'},
 ]
 const DAY=86400000
 export function dailySeries(records,selected=dailyMetrics.map(m=>m.key),limit=30) {
@@ -46,7 +46,7 @@ export function renderDailyChart(container,records,namespace='default'){
   for(let i=0;i<=4;i++){const value=axisMax*i/4;svg.append(node('line',{x1:left,x2:width-right,y1:y(value),y2:y(value),stroke:'#eceeec'}),node('text',{x:left-10,y:y(value)+4,'text-anchor':'end',fill:'#737b73','font-size':11},value.toLocaleString('zh-CN')))}
   const count=Math.min(4,rows.length);for(const index of new Set(Array.from({length:count},(_,i)=>Math.round(i*(rows.length-1)/Math.max(1,count-1)))))svg.append(node('text',{x:x(Date.parse(rows[index].date+'T00:00:00Z')),y:height-12,'text-anchor':'middle',fill:'#737b73','font-size':11},rows[index].date.slice(5)))
   const barWidth=Math.min(22,(pw-2*padding)/Math.max(1,(last-first)/DAY+1)/Math.max(1,series.length)*.7)
-  series.forEach((metric,mi)=>{const group=node('g',{'data-daily-series':metric.key});for(const points of metric.segments){if(!bar&&points.length>1)group.append(node('polyline',{points:points.map(p=>`${x(p.time)},${y(p.value)}`).join(' '),fill:'none',stroke:metric.color,'stroke-width':2,'vector-effect':'non-scaling-stroke'}));for(const p of points){const mark=bar&&p.value!==0?node('rect',{x:x(p.time)+(mi-series.length/2)*barWidth,y:y(p.value),width:Math.max(1,barWidth-1),height:Math.max(0,y(0)-y(p.value)),rx:2,fill:metric.color}):node('circle',{cx:x(p.time)+(bar?(mi-(series.length-1)/2)*barWidth:0),cy:y(p.value),r:2.5,fill:metric.color});mark.setAttribute('tabindex','0');mark.setAttribute('aria-label',`${p.date} ${metric.label}：${p.value}`);mark.append(node('title',{},`${p.date} · ${metric.label}：${p.value.toLocaleString('zh-CN')}`));group.append(mark)}}svg.append(group)})
+  series.forEach((metric,mi)=>{const group=node('g',{'data-daily-series':metric.key});for(const points of metric.segments){if(!bar&&points.length>1)group.append(node('polyline',{points:points.map(p=>`${x(p.time)},${y(p.value)}`).join(' '),fill:'none',stroke:metric.color,'stroke-width':2.25,'stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}));for(const p of points){const mark=bar&&p.value!==0?node('rect',{x:x(p.time)+(mi-series.length/2)*barWidth,y:y(p.value),width:Math.max(1,barWidth-2),height:Math.max(0,y(0)-y(p.value)),rx:4,fill:metric.color}):node('circle',{cx:x(p.time)+(bar?(mi-(series.length-1)/2)*barWidth:0),cy:y(p.value),r:3,fill:metric.color,stroke:'#fff','stroke-width':1.75});mark.setAttribute('tabindex','0');mark.setAttribute('aria-label',`${p.date} ${metric.label}：${p.value}`);mark.append(node('title',{},`${p.date} · ${metric.label}：${p.value.toLocaleString('zh-CN')}`));group.append(mark)}}svg.append(group)})
   target.append(svg)
  }
  function render(editId){

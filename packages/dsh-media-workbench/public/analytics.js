@@ -1,7 +1,7 @@
 const PLATFORM = { bilibili: 'B站', douyin: '抖音', xiaohongshu: '小红书', weixin_channels: '视频号', weixin_article: '微信公众号' }
 const METRIC = { views: '观看', reads: '文章阅读', likes: '点赞', comments: '评论', favorites: '收藏', shares: '转发', followers: '涨粉', coins: '投币', danmaku: '弹幕' }
 const CHECKPOINT = { '24h': '24 小时', '72h': '72 小时', current: '至今' }
-const SERIES_COLORS = ['#527a95', '#6f8f7b', '#bd9364', '#9180a6', '#b77575', '#7c8e99']
+const SERIES_COLORS = ['#5B6CFF', '#12A594', '#F0A43A', '#A56EFF', '#EB6574', '#3498DB']
 const ORIGIN = { manual: '手动', browser: '浏览器', direct: '直接读取', import: '导入' }
 const mounted = new WeakMap()
 const SVG = 'http://www.w3.org/2000/svg'
@@ -182,16 +182,16 @@ function modelChart(model, prefix) {
       let mark
       if (chartType === 'line') {
         path += `${connected ? 'L' : 'M'}${px},${py} `; connected = true
-        mark = svgNode('circle', { cx: px, cy: py, r: 4, fill: color, stroke: '#fff', 'stroke-width': 1.5 })
+        mark = svgNode('circle', { cx: px, cy: py, r: 3.5, fill: color, stroke: '#fff', 'stroke-width': 2 })
       } else {
         const groupWidth = isTime ? 24 : plotWidth / Math.max(1, categories.length) * 0.72
         const barWidth = Math.min(28, groupWidth / Math.max(1, series.length))
-        mark = svgNode('rect', { x: px - barWidth * series.length / 2 + index * barWidth, y: Math.min(y(0), py), width: Math.max(1, barWidth - 1), height: Math.max(1, Math.abs(py - y(0))), rx: 1, fill: color })
+        mark = svgNode('rect', { x: px - barWidth * series.length / 2 + index * barWidth, y: Math.min(y(0), py), width: Math.max(1, barWidth - 2), height: Math.max(1, Math.abs(py - y(0))), rx: 4, fill: color })
       }
       mark.setAttribute('tabindex', '0'); mark.setAttribute('role', 'img'); mark.setAttribute('aria-label', label)
       mark.append(svgNode('title', {}, label)); marks.append(mark)
     })
-    if (chartType === 'line' && path) lines.append(svgNode('path', { d: path.trim(), fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-dasharray': index >= SERIES_COLORS.length ? '5 3' : 'none' }))
+    if (chartType === 'line' && path) lines.append(svgNode('path', { d: path.trim(), fill: 'none', stroke: color, 'stroke-width': 2.25, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-dasharray': index >= SERIES_COLORS.length ? '5 3' : 'none' }))
   })
   const wrap = node('div', undefined, 'analytics-series-chart'); wrap.append(svg)
   if (!values.length) wrap.append(node('p', '所选指标暂无可绘制数据，可在原始明细中查看采集记录。', 'analytics-empty'))

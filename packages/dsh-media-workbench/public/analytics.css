@@ -8,3 +8,6 @@
 .analytics .analytics-series-chart{container-type:inline-size}@container(max-width:400px){.analytics .analytics-axis-label{font-size:16px}}
 
 .analytics .analytics-card-heading{margin-bottom:12px;gap:10px}.analytics .analytics-card-heading h3{min-width:0;overflow-wrap:anywhere}.analytics .analytics-card-actions{display:flex;align-items:center;gap:2px;flex:none}.analytics .analytics-card-actions button{padding:4px 7px}.analytics .analytics-data-details{border-top:1px solid var(--analytics-line);margin-top:12px;padding-top:10px}
+
+/* Modern data palette: the shell stays neutral while series carry the visual identity. */
+.analytics{background:#f7f7f8;--analytics-line:#e4e5e9;--analytics-muted:#6f737c}.analytics .analytics-dashboard-heading h2{font-weight:650;letter-spacing:-.015em}.analytics .analytics-dashboard-grid{gap:18px}.analytics .analytics-chart-card{border-color:#e3e4e8;border-radius:12px;padding:22px 24px}.analytics .analytics-card-heading h3{letter-spacing:-.01em}.analytics .analytics-grid{stroke:#eceef2}.analytics .analytics-baseline{stroke:#d8dbe2}.analytics .analytics-axis-label{fill:#777b85}.analytics .analytics-legend i{border-radius:999px}.analytics .analytics-card-actions button:hover{background:#f1f2f5}

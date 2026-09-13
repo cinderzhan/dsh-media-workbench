@@ -3,3 +3,5 @@
 .daily-chart-plot{container-type:inline-size}@container(max-width:400px){.daily-chart-plot svg text{font-size:17px}}
 
 .daily-trends{margin:8px 0 20px}.daily-chart-toolbar h3{font-size:15px}.daily-chart-toolbar p{color:#707070;font-size:11px}.daily-chart-head{gap:10px;margin-bottom:16px}.daily-chart-head h4{min-width:0;overflow-wrap:anywhere;font-size:14px}.daily-chart-actions{flex-shrink:0}.daily-chart-card{border-color:#e6e6e6;border-radius:8px;padding:20px}.daily-chart-grid{gap:16px}.daily-chart-legend{margin-top:0}.daily-records{border-top:1px solid #e9e9e9;padding-top:12px}.daily-records>summary{cursor:pointer;color:#666;font-size:12px;padding:4px 0 12px}.daily-records>summary:focus-visible{outline:2px solid #555;outline-offset:2px}
+
+.daily-chart-card{border-color:#e3e4e8;border-radius:12px;padding:22px 24px}.daily-chart-grid{gap:18px}.daily-chart-head h4{letter-spacing:-.01em}.daily-chart-legend i{width:8px;height:8px}.daily-chart-plot svg line{stroke:#eceef2}.daily-chart-note{color:#6f737c}.daily-chart-actions button:hover{background:#f1f2f5}

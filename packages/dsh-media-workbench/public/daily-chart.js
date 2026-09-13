@@ -29,7 +29,7 @@ export function renderDailyChart(container,records,namespace='default'){
  if(previous)charts=previous.charts
  const wrap=element('section','daily-trends');wrap.setAttribute('aria-label','北极星指标趋势')
  const toolbar=element('div','daily-chart-toolbar'),intro=element('div'),add=element('button','daily-chart-add','添加图表'),grid=element('div','daily-chart-grid')
- intro.append(element('h3','','指标趋势'),element('p','','按你的关注点组合指标，每张图表可独立设置。'));add.type='button';toolbar.append(intro,add);wrap.append(toolbar,grid);container.append(wrap)
+ intro.append(element('h3','','指标趋势'),element('p','','每日新增值 · 缺失数据断开显示'));add.type='button';toolbar.append(intro,add);wrap.append(toolbar,grid);container.append(wrap)
  const persist=()=>{try{localStorage.setItem(storageKey,JSON.stringify(charts.filter(c=>!c.unsaved)))}catch{}}
  function drawGraph(target,config){
   const active=records.filter(r=>!r.archivedAt).slice().sort((a,b)=>a.date.localeCompare(b.date));const latest=active.at(-1)?.date
@@ -55,9 +55,9 @@ export function renderDailyChart(container,records,namespace='default'){
   for(const config of charts){
    const card=element('article','daily-chart-card'),head=element('div','daily-chart-head'),title=element('h4','',config.title),actions=element('div','daily-chart-actions'),edit=element('button','','编辑'),remove=element('button','','删除')
    edit.type=remove.type='button';edit.setAttribute('aria-label',`编辑${config.title}`);remove.setAttribute('aria-label',`删除${config.title}`);actions.append(edit,remove);head.append(title,actions);card.append(head)
-   const legend=element('div','daily-chart-legend');for(const metric of dailyMetrics.filter(m=>config.metrics.includes(m.key))){const label=element('span','',metric.label),dot=element('i');dot.style.background=metric.color;label.prepend(dot);legend.append(label)}card.append(legend)
+   const legend=element('div','daily-chart-legend');for(const metric of dailyMetrics.filter(m=>config.metrics.includes(m.key))){const label=element('span','',metric.label),dot=element('i');dot.style.background=metric.color;label.prepend(dot);legend.append(label)}if(config.metrics.length>1||dailyMetrics.find(m=>m.key===config.metrics[0])?.label!==config.title)card.append(legend)
    const graph=element('div','daily-chart-plot');drawGraph(graph,config);card.append(graph)
-   card.append(element('p','daily-chart-note',`${config.range==='custom'?`${config.start||'起始'} 至 ${config.end||'最新'}`:config.range==='all'?'全部日期':`截至最新记录的 ${config.range} 天`} · 每日新增值 · 缺失数据断开显示`))
+   card.append(element('p','daily-chart-note',`${config.range==='custom'?`${config.start||'起始'} 至 ${config.end||'最新'}`:config.range==='all'?'全部日期':`截至最新记录的 ${config.range} 天`}`))
    const settings=element('form','daily-chart-settings');settings.dataset.chartId=config.id;settings.hidden=config.id!==editId
    const field=(text,input)=>{const label=element('label','daily-chart-field');label.append(element('span','',text),input);settings.append(label)}
    const input=element('input');input.value=config.title;input.required=true;input.maxLength=60;field('图表名称',input)

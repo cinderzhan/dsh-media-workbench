@@ -224,6 +224,8 @@ export function renderAnalytics(container, state, options = {}) {
   }
   container.classList.add('analytics')
   const drawDashboard = () => {
+    const active = container.contains(document.activeElement) ? document.activeElement : null
+    const focus = active?.id ? { id: active.id, start: active.selectionStart, end: active.selectionEnd } : null
     container.replaceChildren()
     const heading = node('div', undefined, 'analytics-dashboard-heading')
     heading.append(node('h2', '数据看板'))
@@ -235,6 +237,11 @@ export function renderAnalytics(container, state, options = {}) {
       context.state = state
       renderCard(card, context, persist, () => { dashboard.cards = dashboard.cards.filter(item => item !== context); persist(); drawDashboard() })
     }
+    if (focus) {
+      const control = document.getElementById(focus.id)
+      control?.focus({ preventScroll: true })
+      if (typeof focus.start === 'number' && control?.setSelectionRange) control.setSelectionRange(focus.start, focus.end)
+    }
   }
   drawDashboard()
 }
@@ -245,16 +252,19 @@ function renderCard(container, context, persist, remove) {
     const config = { ...filters, ...settings, view }
     container.replaceChildren()
     const heading = node('div', undefined, 'analytics-card-heading'); heading.append(node('h3', context.title))
-    const removeButton = node('button', '删除'); removeButton.type = 'button'; removeButton.setAttribute('aria-label', `删除图表：${context.title}`); removeButton.addEventListener('click', remove); heading.append(removeButton); container.append(heading)
+    const removeButton = node('button', '删除'); removeButton.type = 'button'; removeButton.setAttribute('aria-label', `删除图表：${context.title}`); removeButton.addEventListener('click', remove); const actions = node('div', undefined, 'analytics-card-actions'); const editButton = node('button', '编辑'); editButton.type = 'button'; editButton.setAttribute('aria-label', `编辑图表：${context.title}`); editButton.setAttribute('aria-controls', `${prefix}-editor`); editButton.setAttribute('aria-expanded', String(Boolean(context.editOpen))); actions.append(editButton, removeButton); heading.append(actions); container.append(heading)
     const select = (key, label, options, value, change) => {
       const wrapper = node('label', undefined, 'analytics-control'); wrapper.append(node('span', label))
       const control = node('select'); control.id = `${prefix}-${key}`
       for (const [v, title] of Object.entries(options)) { const option = node('option', title); option.value = v; control.append(option) }
       control.value = value; control.addEventListener('change', () => { change(control.value); draw(); container.querySelector(`#${prefix}-${key}`)?.focus() }); wrapper.append(control); return wrapper
     }
-    const editor = disclosure('编辑图表', node('div')); editor.className = 'analytics-editor'; editor.open = Boolean(context.editOpen); editor.addEventListener('toggle', () => { if (editor.isConnected) context.editOpen = editor.open });
+    const editor = disclosure('编辑图表', node('div')); editor.className = 'analytics-editor'; editor.id = `${prefix}-editor`; editor.open = Boolean(context.editOpen); editor.addEventListener('toggle', () => { if (editor.isConnected) { context.editOpen = editor.open; editButton.setAttribute('aria-expanded', String(editor.open)) } });
+    editButton.addEventListener('click', () => { context.editOpen = !editor.open; editor.open = context.editOpen; editButton.setAttribute('aria-expanded', String(editor.open)) })
     const editBody = editor.lastElementChild; container.append(editor)
-    const titleLabel = node('label', undefined, 'analytics-control'); titleLabel.append(node('span', '图表名称')); const titleInput = node('input'); titleInput.value = context.title; titleInput.maxLength = 80; titleInput.addEventListener('change', () => { context.title = titleInput.value.trim() || VIEW[view]; draw() }); titleLabel.append(titleInput); editBody.append(titleLabel)
+    const titleLabel = node('label', undefined, 'analytics-control'); titleLabel.append(node('span', '图表名称')); const titleInput = node('input'); titleInput.id = `${prefix}-title`; titleInput.value = context.titleDraft ?? context.title; titleInput.maxLength = 80;
+    const updateTitle = () => { context.titleDraft = titleInput.value; context.title = titleInput.value.trim() || VIEW[view]; heading.querySelector('h3').textContent = context.title; removeButton.setAttribute('aria-label', `删除图表：${context.title}`); editButton.setAttribute('aria-label', `编辑图表：${context.title}`); persist() };
+    titleInput.addEventListener('input', updateTitle); titleInput.addEventListener('change', updateTitle); titleLabel.append(titleInput); editBody.append(titleLabel)
     const controls = node('div', undefined, 'analytics-controls')
     controls.append(select('view', '分析内容', VIEW, view, value => { context.view = value }))
     controls.append(select('x-axis', '横轴', view === 'content' ? { content: AXIS.content, checkpoint: AXIS.checkpoint } : view === 'history' ? { time: AXIS.time } : { platform: AXIS.platform }, settings.xAxis, value => { settings.xAxis = value; settings.checkpoint = value === 'checkpoint' ? 'all' : 'current' }))
@@ -302,11 +312,9 @@ function renderCard(container, context, persist, remove) {
       const label = node('span'), swatch = node('i'); swatch.style.background = SERIES_COLORS[index % SERIES_COLORS.length]
       label.title = item.label; label.append(swatch, node('span', item.label)); legend.append(label)
     }); container.append(legend)
-    container.append(node('p', `${view === 'history' ? '全部采集历史 · 实际时间间隔' : settings.checkpoint === 'current' ? '取最新采集记录' : '取所选发布后节点'} · 缺失不计零${model.metrics.length > 1 ? ' · 叠加指标共用数量轴，注意数量级差异' : ''}`, 'analytics-note'))
-    const methodology = disclosure('查看统计口径', node('p', model.notes.join(' '), 'analytics-note'))
-    methodology.open = Boolean(context.methodologyOpen); methodology.addEventListener('toggle', () => { if (methodology.isConnected) context.methodologyOpen = methodology.open }); container.append(methodology)
     const detailRows = model.series.flatMap(item => item.points.filter(point => point.publication).map(point => [point.publication.title || '未命名内容', point.publication.id, platformName(point.publication.platform), METRIC[item.metric], format(point.value), CHECKPOINT[point.checkpoint || point.snapshot?.checkpoint] || '—', timestamp(point.snapshot?.capturedAt), timestamp(point.snapshot?.targetAt), deltaText(point.snapshot), ORIGIN[point.snapshot?.source] || point.snapshot?.source || '—']))
-    const details = disclosure('原始数值明细', dataTable(['内容', '发布记录 ID', '平台', '指标', '数值', '发布后节点', '实际采集时间', '目标时间', '时间偏差', '采集来源'], detailRows, `${VIEW[view]}的原始采集记录；缺失值为 —，真实 0 保留。`))
+    const detailBody = node('div'); detailBody.append(node('p', model.notes.join(' '), 'analytics-note'), dataTable(['内容', '发布记录 ID', '平台', '指标', '数值', '发布后节点', '实际采集时间', '目标时间', '时间偏差', '采集来源'], detailRows, `${VIEW[view]}的原始采集记录；缺失值为 —，真实 0 保留。`))
+    const details = disclosure('数据明细与统计口径', detailBody); details.className = 'analytics-data-details'
     details.open = Boolean(context.detailsOpen); details.addEventListener('toggle', () => { if (details.isConnected) context.detailsOpen = details.open }); container.append(details)
   }
   draw()

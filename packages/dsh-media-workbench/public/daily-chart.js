@@ -39,13 +39,13 @@ export function renderDailyChart(container,records,namespace='default'){
   const {rows,series,max}=dailySeries(filtered,config.metrics,Infinity)
   if(!rows.length||!series.some(m=>m.segments.length)){target.append(element('p','daily-chart-empty',!config.metrics.length?'请选择至少一项指标':'所选日期范围内暂无指标数据'));return}
   const node=(tag,attrs={},text)=>{const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,String(v));if(text!==undefined)n.textContent=text;return n}
-  const width=600,height=250,left=52,right=24,top=16,bottom=38,pw=width-left-right,ph=height-top-bottom
+  const width=560,height=280,left=65,right=25,top=20,bottom=60,pw=width-left-right,ph=height-top-bottom
   const axisMax=Math.ceil(max/4)*4,first=Date.parse(rows[0].date+'T00:00:00Z'),last=Date.parse(rows.at(-1).date+'T00:00:00Z'),bar=config.type==='bar'
   const padding=bar?Math.min(30,pw/Math.max(2,rows.length)):8
   const x=t=>left+padding+(first===last?(pw-2*padding)/2:(t-first)/(last-first)*(pw-2*padding)),y=v=>top+ph*(1-v/axisMax)
   const svg=node('svg',{viewBox:`0 0 ${width} ${height}`,role:'img','aria-label':`${config.title} · ${bar?'柱状图':'折线图'}`})
   for(let i=0;i<=4;i++){const value=axisMax*i/4;svg.append(node('line',{x1:left,x2:width-right,y1:y(value),y2:y(value),stroke:'#eceeec'}),node('text',{x:left-10,y:y(value)+4,'text-anchor':'end',fill:'#737b73','font-size':11},value.toLocaleString('zh-CN')))}
-  const count=Math.min(4,rows.length);for(const index of new Set(Array.from({length:count},(_,i)=>Math.round(i*(rows.length-1)/Math.max(1,count-1)))))svg.append(node('text',{x:x(Date.parse(rows[index].date+'T00:00:00Z')),y:height-12,'text-anchor':'middle',fill:'#737b73','font-size':11},rows[index].date.slice(5)))
+  const count=Math.min(4,rows.length);for(const index of new Set(Array.from({length:count},(_,i)=>Math.round(i*(rows.length-1)/Math.max(1,count-1)))))svg.append(node('text',{x:x(Date.parse(rows[index].date+'T00:00:00Z')),y:height-31,'text-anchor':'middle',fill:'#737b73','font-size':11},rows[index].date.slice(5)))
   const barWidth=Math.min(22,(pw-2*padding)/Math.max(1,(last-first)/DAY+1)/Math.max(1,series.length)*.7)
   series.forEach((metric,mi)=>{const group=node('g',{'data-daily-series':metric.key});for(const points of metric.segments){if(!bar&&points.length>1)group.append(node('polyline',{points:points.map(p=>`${x(p.time)},${y(p.value)}`).join(' '),fill:'none',stroke:metric.color,'stroke-width':2.25,'stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}));for(const p of points){const mark=bar&&p.value!==0?node('rect',{x:x(p.time)+(mi-series.length/2)*barWidth,y:y(p.value),width:Math.max(1,barWidth-2),height:Math.max(0,y(0)-y(p.value)),rx:4,fill:metric.color}):node('circle',{cx:x(p.time)+(bar?(mi-(series.length-1)/2)*barWidth:0),cy:y(p.value),r:3,fill:metric.color,stroke:'#fff','stroke-width':1.75});if(!bar)mark.dataset.lineSegment=`${metric.key}:${points[0].date}`;mark.dataset.date=p.date;mark.dataset.value=String(p.value);mark.setAttribute('tabindex','0');mark.setAttribute('aria-label',`${p.date} ${metric.label}：${p.value}`);mark.append(node('title',{},`${p.date} · ${metric.label}：${p.value.toLocaleString('zh-CN')}`));group.append(mark)}}svg.append(group)})
   const entries = [...svg.querySelectorAll('[data-daily-series]')].flatMap(group => {
@@ -56,6 +56,7 @@ export function renderDailyChart(container,records,namespace='default'){
     return { mark, title: config.title, metric: metric.label, value, color: metric.color, details: [`日期：${date}`, '每日新增值'] }
    })
   })
+  svg.setAttribute('preserveAspectRatio', 'none')
   installChartInteraction(svg, entries)
   target.append(svg)
  }
@@ -65,7 +66,7 @@ export function renderDailyChart(container,records,namespace='default'){
   for(const config of charts){
    const card=element('article','daily-chart-card'),head=element('div','daily-chart-head'),title=element('h4','',config.title),actions=element('div','daily-chart-actions'),edit=element('button','','编辑'),remove=element('button','','删除')
    edit.type=remove.type='button';edit.setAttribute('aria-label',`编辑${config.title}`);remove.setAttribute('aria-label',`删除${config.title}`);actions.append(edit,remove);head.append(title,actions);card.append(head)
-   const legend=element('div','daily-chart-legend');for(const metric of dailyMetrics.filter(m=>config.metrics.includes(m.key))){const label=element('span','',metric.label),dot=element('i');dot.style.background=metric.color;label.prepend(dot);legend.append(label)}if(config.metrics.length>1||dailyMetrics.find(m=>m.key===config.metrics[0])?.label!==config.title)card.append(legend)
+   const legend=element('div','daily-chart-legend');for(const metric of dailyMetrics.filter(m=>config.metrics.includes(m.key))){const label=element('span','',metric.label),dot=element('i');dot.style.background=metric.color;label.prepend(dot);legend.append(label)}if(config.metrics.length===1&&dailyMetrics.find(m=>m.key===config.metrics[0])?.label===config.title)legend.replaceChildren();card.append(legend)
    const graph=element('div','daily-chart-plot');drawGraph(graph,config);card.append(graph)
    card.append(element('p','daily-chart-note',`${config.range==='custom'?`${config.start||'起始'} 至 ${config.end||'最新'}`:config.range==='all'?'全部日期':`截至最新记录的 ${config.range} 天`}`))
    const settings=element('form','daily-chart-settings');settings.dataset.chartId=config.id;settings.hidden=config.id!==editId

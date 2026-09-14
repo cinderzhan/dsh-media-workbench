@@ -13,3 +13,16 @@
 
 /* Modern data palette: the shell stays neutral while series carry the visual identity. */
 .analytics{background:#f7f7f8;--analytics-line:#e4e5e9;--analytics-muted:#6f737c}.analytics .analytics-dashboard-heading h2{font-weight:650;letter-spacing:-.015em}.analytics .analytics-dashboard-grid{gap:18px}.analytics .analytics-chart-card{border-color:#e3e4e8;border-radius:12px;padding:22px 24px}.analytics .analytics-card-heading h3{letter-spacing:-.01em}.analytics .analytics-grid{stroke:#eceef2}.analytics .analytics-baseline{stroke:#d8dbe2}.analytics .analytics-axis-label{fill:#777b85}.analytics .analytics-legend i{border-radius:999px}.analytics .analytics-card-actions button:hover{background:#f1f2f5}
+/* Shared chart geometry: 448px collapsed card, 240px plot, 44px legend. */
+.analytics .analytics-chart-card{box-sizing:border-box;display:flex;flex-direction:column;min-height:448px;padding:22px 24px}
+.analytics .analytics-chart-card:not(:has(.analytics-editor[open],.analytics-data-details[open])){height:448px}
+.analytics .analytics-card-heading{height:32px;min-height:32px;flex:none;margin:0 0 8px}
+.analytics .analytics-card-heading h3{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
+.analytics .analytics-summary{height:20px;line-height:20px;flex:none;margin:0 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.analytics .analytics-series-chart{height:240px;min-height:240px;flex:none;margin:0 0 8px;padding:0;overflow:auto}
+.analytics .analytics-series-chart .analytics-svg{height:224px;max-height:224px;width:100%}
+.analytics .analytics-legend{height:44px;min-height:44px;max-height:44px;flex:none;margin:0 0 8px;align-content:flex-start;overflow:auto}
+.analytics .analytics-data-details{flex:none;min-height:32px;margin:0;margin-top:auto;padding:8px 0 0}
+.analytics .analytics-chart-card>.analytics-empty{flex:1;display:grid;place-content:center}
+.analytics .analytics-editor[open]{flex:none}
+.analytics .analytics-legend i{flex:none}

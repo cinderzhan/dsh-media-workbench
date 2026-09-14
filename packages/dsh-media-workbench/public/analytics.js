@@ -193,7 +193,9 @@ function modelChart(model, prefix) {
   const x = key => isTime ? minTime === maxTime ? left + plotWidth / 2 : left + (key - minTime) / (maxTime - minTime) * plotWidth : left + ((categoryIndex.get(key) ?? 0) + 0.5) / Math.max(1, categories.length) * plotWidth
   const title = `${VIEW[model.view]}，${chartType === 'line' ? '折线图' : '柱状图'}。横轴：${AXIS[xAxis]}；纵轴：${model.metrics.map(key => METRIC[key]).join('、')}（原始数量）。缺失值不按零计算。`
   const svg = chartSvg(title, width, height, `${prefix}-chart-title`)
-  svg.style.minWidth = width > 900 ? `${width}px` : '0'
+  // Reserve 16px below the drawing for a horizontal scrollbar.
+  svg.style.minWidth = `${Math.round(width * 224 / height)}px`
+  svg.setAttribute('preserveAspectRatio', 'none')
   for (const fraction of [0, 0.25, 0.5, 0.75, 1]) {
     const value = (minimum + (maximum - minimum) * fraction) * magnitude
     const axisValue=Math.abs(value)>=1e8?`${format(Math.round(value/1e7)/10)}亿`:Math.abs(value)>=1e4?`${format(Math.round(value/1e3)/10)}万`:format(Math.round(value*10)/10)

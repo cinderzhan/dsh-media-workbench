@@ -3,7 +3,7 @@
   "id": "media-workbench",
   "title": "内容运营工作台",
   "description": "选题、达人、Campaign、排期及数据管理，保留四窗口与原生会话。",
-  "version": "0.12.1",
+  "version": "0.12.2",
   "entry": "./packages/dsh-media-workbench/client.js",
   "compatibility": {
     "desktopWorkbenches": "^0.1.0",

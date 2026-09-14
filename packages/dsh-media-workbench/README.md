@@ -1,6 +1,6 @@
 # 内容运营工作台
 
-v0.12.1 接入 Desktop 本地工作台市场，要求宿主提供 desktopWorkbenches ^0.1.0 的 customFrame 接口。保留四窗口布局、业务表单与显式新建会话流程，并将业务界面限制在宿主分配区域内；无需旧版 Profile 补丁。详见 [规范适配说明](../../docs/workbench-market-adapter.md)。
+v0.12.2 兼容新旧 Desktop：新版使用市场 customFrame 接口，旧版回退到独立侧栏入口，不强制等待缺失的 desktopWorkbenches 服务。会话嵌入按宿主实际能力提供。详见 [规范适配说明](../../docs/workbench-market-adapter.md)。
 v0.10.0：图表悬停、点击或键盘聚焦显示具体数值、日期与平台。发布记录使用 source=official/creator；带链接的官方记录必须关联 topicId，达人记录必须关联 creatorId 和 campaignId。旧记录保留读取，通过“待绑定”补齐归属。
 
 `dsh-media-workbench` 是面向单人运营的 DSH Desktop 工作台插件（Phase 1），管理官号视频、达人合作、发布排期及数据复盘。它复用 Harness 会话和公共侧栏，不替换市场、设置或会话系统。多人共享、权限管理和云端持续采集不属于当前版本。

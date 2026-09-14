@@ -25,7 +25,8 @@ async function fixture({ draft = '', occurrences = [], bindings = [] } = {}) {
     fakeDock:(_node,options)=>{options.onFrame(frame);return {frames:[frame],destroy(){}}},
     fetch:async (_path,options)=>{if(options?.body){const body=JSON.parse(options.body);writes.push(body);business.bindings=business.bindings.filter(b=>b.sessionId!==body.data.sessionId);business.bindings.push({...body.data,lastUsedAt:'2026-09-14'})}return {ok:true,json:async()=>business}}
   })
-  module.apply({desktopWorkbenches:service,effect:fn=>fn(),sessions:{refresh:async()=>{},list:{subscribe:()=>()=>{},getSnapshot:()=>({current,byId:Object.fromEntries(business.bindings.map(b=>[b.sessionId,{}]))})},scope:()=>({get:()=>({input:{for:()=>({state:{getSnapshot:()=>({draft,occurrences})},setDraft:value=>{drafts.push(value);draft=value}})}})})}})
+  const ctxForMarket={get:()=>service,inject:(_deps,fn)=>fn({desktopWorkbenches:service,effect:fn=>fn(),sessions:ctxForMarket.sessions}),desktopWorkbenches:service,effect:fn=>fn(),sessions:{refresh:async()=>{},list:{subscribe:()=>()=>{},getSnapshot:()=>({current,byId:Object.fromEntries(business.bindings.map(b=>[b.sessionId,{}]))})},scope:()=>({get:()=>({input:{for:()=>({state:{getSnapshot:()=>({draft,occurrences})},setDraft:value=>{drafts.push(value);draft=value}})}})})}}
+  module.apply(ctxForMarket)
   await tick()
   function flatten(node){return !node||typeof node!=='object'?[]:[node,...(node.children||[]).flatMap(flatten)]}
   const tree=Panel({conversation:h('native-conversation')});await tick()
@@ -50,7 +51,7 @@ test('registers a custom market frame, immediately shows business dock, mounts o
   assert.equal(root.props.style.boxSizing,'border-box')
   assert.equal(root.props.style.position,undefined)
   assert.equal(root.props.style.inset,undefined)
-  assert.doesNotMatch(source,/shell\.overlay|claimConversationHost|renderSlot|sidebar\.footer/)
+  assert.doesNotMatch(source.slice(0,source.indexOf('function applyLegacy')),/shell\.overlay|claimConversationHost|renderSlot|sidebar\.footer/)
 })
 
 test('explicit topic session action uses host ownership bridge, preserves business binding and original intro',async()=>{
@@ -75,4 +76,27 @@ test('saved session opens through host; foreign ownership never mutates binding'
  assert.equal(f.ensured[0].sessionId,'saved');assert.equal(f.drafts.length,0)
  const bad=await fixture({bindings:[binding]});bad.setOwner('saved','ming-life');await bad.send({scope:'topic',entityId:'t1',sessionId:'saved'})
  assert.equal(bad.writes.length,0);assert.equal(bad.replies[0].error,'wrong owner')
+})
+test('legacy hosts boot without market dependency and release fallback when market arrives', async()=>{
+ let module, marketCallback, disposed=false, registered=false
+ const slots=[],services={}
+ vm.runInNewContext(source,{
+  window:{__ModuleLoader__:{load:r=>{module=r.factory(name=>name==='react'?{createElement:()=>{}}:{})}},addEventListener(){},removeEventListener(){}},
+  localStorage:{getItem:()=>null},fetch:async()=>({ok:true,json:async()=>({bindings:[]})})
+ })
+ const ctx={get:()=>registeredService,effect:fn=>fn(),sessions:{list:{subscribe:()=>()=>{},getSnapshot:()=>({current:null})}},
+  slots:{inject:(_name,fn)=>fn(),register:definition=>slots.push(definition.name)},workspaces:{},
+  inject:(deps,fn)=>{if(deps.includes('desktopWorkbenches'))marketCallback=fn;else fn(ctx)},
+  plugin:plugin=>{plugin.apply(ctx);return {dispose:()=>{disposed=true}}}}
+ let registeredService
+ Object.defineProperty(ctx,'desktopWorkbenches',{get(){throw Error('cannot get property desktopWorkbenches without inject')}})
+ assert.deepEqual(Array.from(module.inject),['sessions','conversation'])
+ module.apply(ctx);await tick()
+ assert.deepEqual(slots,['sidebar.footer.action','shell.overlay'])
+ services.getSnapshot=()=>({state:{active:null,added:[],sessionBindings:{}}});services.register=()=>{registered=true}
+ registeredService=services;marketCallback({effect:ctx.effect,sessions:ctx.sessions,desktopWorkbenches:services});await tick()
+ assert.equal(disposed,true);assert.equal(registered,true)
+ const manifest=JSON.parse(readFileSync(new URL('../packages/dsh-media-workbench/package.json',import.meta.url),'utf8'))
+ assert.ok(!manifest.dsh.client.inject.includes('dsh-desktop-workbenches'))
+ assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-api-workspace-controller'))
 })

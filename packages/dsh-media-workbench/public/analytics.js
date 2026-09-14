@@ -47,7 +47,7 @@ export function deriveComparisonSeries(state, filters, publicationIds) {
   })
 }
 const VIEW = { content: '多内容对比', history: '历史趋势', platform: '多平台对比' }
-const AXIS = { content: '内容', checkpoint: '发布后节点', time: '实际采集时间', platform: '平台' }
+const AXIS = { content: '选题 / 达人项目', checkpoint: '发布后节点', time: '实际采集时间', platform: '平台' }
 const DEFAULTS = {
   content: { xAxis: 'content', chartType: 'bar', metric: 'views', overlayMetrics: [], checkpoint: 'current' },
   history: { xAxis: 'time', chartType: 'line', metric: 'views', overlayMetrics: [], checkpoint: 'current' },
@@ -55,6 +55,15 @@ const DEFAULTS = {
 }
 const platformName = value => PLATFORM[value] || value || '未知平台'
 const publicationName = publication => `${publication.title || '未命名内容'} · ${platformName(publication.platform)}${publication.publishedAt ? ` · ${timestamp(publication.publishedAt)}` : ''}`
+function contentGroup(publication, state) {
+  if (publication.topicId) return { key: `topic:${publication.topicId}`, label: `选题：${state.topics?.find(item => item.id === publication.topicId)?.title || publication.topicId}` }
+  if (publication.creatorId && publication.campaignId) {
+    const creator = state.creators?.find(item => item.id === publication.creatorId)
+    const campaign = state.campaigns?.find(item => item.id === publication.campaignId)
+    return { key: `creator-campaign:${JSON.stringify([publication.creatorId, publication.campaignId])}`, label: `达人：${creator?.name || publication.creatorId} · 项目：${campaign?.name || campaign?.title || publication.campaignId}` }
+  }
+  return { key: `publication:${publication.id}`, label: `未绑定：${publicationName(publication)}` }
+}
 /**
  * Pure model shared by all three views. ids omitted selects all filtered publications;
  * [] selects none. All values are finite numbers or null, never inferred totals.
@@ -75,8 +84,36 @@ export function deriveChartModel(state, config = {}, ids) {
   const categories = [], series = [], notes = []
   const point = (row, snapshot, key, x, extra = {}) => ({ x, value: numeric(snapshot?.metrics?.[key]) ? snapshot.metrics[key] : null, publication: row.publication, snapshot, ...extra })
   if (xAxis === 'content') {
-    categories.push(...rows.map(row => ({ key: row.publication.id, label: publicationName(row.publication) })))
-    for (const key of metrics) series.push({ id: key, label: METRIC[key], metric: key, points: rows.map(row => point(row, row.snapshot, key, row.publication.id)) })
+    const groups = new Map()
+    for (const row of rows) {
+      const identity = contentGroup(row.publication, state)
+      if (!groups.has(identity.key)) groups.set(identity.key, { ...identity, platforms: new Map() })
+      const group = groups.get(identity.key), platform = row.publication.platform
+      if (!group.platforms.has(platform)) group.platforms.set(platform, [])
+      group.platforms.get(platform).push(row)
+    }
+    for (const group of groups.values()) {
+      categories.push({ key: group.key, label: group.label })
+      for (const entries of group.platforms.values()) entries.sort((a, b) => String(a.publication.id).localeCompare(String(b.publication.id)))
+    }
+    const platformOrder = Object.keys(PLATFORM)
+    const platforms = [...new Set(rows.map(row => row.publication.platform))].sort((a, b) => {
+      const ai = platformOrder.indexOf(a), bi = platformOrder.indexOf(b)
+      return (ai < 0 ? platformOrder.length : ai) - (bi < 0 ? platformOrder.length : bi) || String(a).localeCompare(String(b))
+    })
+    for (const platform of platforms) {
+      const slots = Math.max(...[...groups.values()].map(group => group.platforms.get(platform)?.length || 0))
+      for (let slot = 0; slot < slots; slot++) for (const key of metrics) {
+        series.push({ id: `${platform}:${slot}:${key}`, platform, metric: key, slot,
+          colorIndex: (platformOrder.indexOf(platform) < 0 ? platformOrder.length : platformOrder.indexOf(platform)) + Object.keys(METRIC).indexOf(key),
+          label: `${platformName(platform)} · ${METRIC[key]}${slots > 1 ? ` · 发布 ${slot + 1}` : ''}`,
+          points: [...groups.values()].map(group => {
+            const row = group.platforms.get(platform)?.[slot]
+            return row ? point(row, row.snapshot, key, group.key, { groupLabel: group.label }) : { x: group.key, value: null, publication: null, snapshot: null, groupLabel: group.label }
+          }) })
+      }
+    }
+    notes.push('同一选题归为一组，各平台并排展示。无选题的达人发布按达人与项目组合分组；历史未绑定记录独立展示。同组同平台的多条发布按记录 ID 分列，不求和。')
   } else if (xAxis === 'time') {
     for (const row of rows) for (const key of metrics) series.push({
       id: `${row.publication.id}:${key}`, label: `${publicationName(row.publication)} · ${METRIC[key]}`, metric: key, publication: row.publication,
@@ -175,7 +212,7 @@ function modelChart(model, prefix) {
   const entries = []
   const lines = svgNode('g'), marks = svgNode('g'); svg.append(lines, marks)
   series.forEach((item, index) => {
-    const color = SERIES_COLORS[index % SERIES_COLORS.length]
+    const color = SERIES_COLORS[(item.colorIndex ?? index) % SERIES_COLORS.length]
     let path = '', connected = false, segment = 0
     item.points.forEach(point => {
       if (!numeric(point.value) || (isTime && !numeric(point.x))) { connected = false; return }
@@ -196,7 +233,7 @@ function modelChart(model, prefix) {
       mark.setAttribute('tabindex', '0'); mark.setAttribute('role', 'img'); mark.setAttribute('aria-label', label)
       marks.append(mark)
       entries.push({ mark, title: point.publication?.title || item.label, metric: METRIC[item.metric], value: point.value, color,
-        details: [point.publication ? platformName(point.publication.platform) : item.label, `采集时间：${exactChartTime(point.snapshot?.capturedAt)}`, `发布后节点：${CHECKPOINT[point.checkpoint || point.snapshot?.checkpoint] || '—'} · ${ORIGIN[point.snapshot?.source] || point.snapshot?.source || '—'}`] })
+        details: [...(point.groupLabel ? [point.groupLabel] : []), point.publication ? platformName(point.publication.platform) : item.label, `采集时间：${exactChartTime(point.snapshot?.capturedAt)}`, `发布后节点：${CHECKPOINT[point.checkpoint || point.snapshot?.checkpoint] || '—'} · ${ORIGIN[point.snapshot?.source] || point.snapshot?.source || '—'}`] })
     })
     if (chartType === 'line' && path) lines.append(svgNode('path', { d: path.trim(), fill: 'none', stroke: color, 'stroke-width': 2.25, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-dasharray': index >= SERIES_COLORS.length ? '5 3' : 'none' }))
   })
@@ -210,7 +247,7 @@ export function renderAnalytics(container, state, options = {}) {
   const scope = options.workspaceId || state.workspaceId || state.workspace?.id || state.workspacePath || location.pathname
   const storageKey = `dsh.analytics.dashboard.v1:${scope}`
   let dashboard = mounted.get(container)
-  const makeCard = (view = 'content') => ({ prefix: `media-analytics-${++sequence}`, title: VIEW[view], view, filters: { platform: '', owner: '', source: '' }, selectedIds: null, settings: Object.fromEntries(Object.entries(DEFAULTS).map(([key, value]) => [key, { ...value, overlayMetrics: [] }])) })
+  const makeCard = (view = 'content') => ({ prefix: `media-analytics-${++sequence}`, title: view === 'content' ? '选题跨平台对比' : VIEW[view], view, filters: { platform: '', owner: '', source: '' }, selectedIds: null, settings: Object.fromEntries(Object.entries(DEFAULTS).map(([key, value]) => [key, { ...value, overlayMetrics: [] }])) })
   if (!dashboard || dashboard.storageKey !== storageKey) {
     let saved
     try { saved = JSON.parse(window.localStorage.getItem(storageKey)) } catch { /* Storage may be disabled. */ }
@@ -291,7 +328,10 @@ function renderCard(container, context, persist, remove) {
     const overlays = disclosure(`纵轴叠加指标 · ${settings.overlayMetrics.length}/2${settings.overlayMetrics.length ? ' · ' + settings.overlayMetrics.map(key => METRIC[key]).join('、') : ''}`, overlayBody)
     overlays.open = Boolean(context.overlayOpen); overlays.addEventListener('toggle', () => { if (overlays.isConnected) context.overlayOpen = overlays.open }); editBody.append(overlays)
     const candidates = deriveAnalyticsRows(context.state, { ...filters, metric: settings.metric, checkpoint: 'current' })
-    if (context.selectedIds === null && candidates.length) context.selectedIds = new Set(candidates.slice(0, 5).map(row => row.publication.id))
+    if (context.selectedIds === null && candidates.length) {
+      const initialGroups = new Set([...new Set(candidates.map(row => contentGroup(row.publication, context.state).key))].slice(0, 5))
+      context.selectedIds = new Set((view === 'content' ? candidates.filter(row => initialGroups.has(contentGroup(row.publication, context.state).key)) : candidates.slice(0, 5)).map(row => row.publication.id))
+    }
     const selectedIds = context.selectedIds || new Set()
     const model = deriveChartModel(context.state, config, [...selectedIds])
     const pickerBody = node('div', undefined, 'analytics-picker-body'), pickerActions = node('div', undefined, 'analytics-picker-actions')
@@ -317,7 +357,7 @@ function renderCard(container, context, persist, remove) {
     container.append(modelChart(model, prefix))
     const legend = node('div', undefined, 'analytics-legend'); legend.setAttribute('aria-label', '图例')
     model.series.forEach((item, index) => {
-      const label = node('span'), swatch = node('i'); swatch.style.background = SERIES_COLORS[index % SERIES_COLORS.length]
+      const label = node('span'), swatch = node('i'); swatch.style.background = SERIES_COLORS[(item.colorIndex ?? index) % SERIES_COLORS.length]
       label.title = item.label; label.append(swatch, node('span', item.label)); legend.append(label)
     }); container.append(legend)
     const detailRows = model.series.flatMap(item => item.points.filter(point => point.publication).map(point => [point.publication.title || '未命名内容', point.publication.id, platformName(point.publication.platform), METRIC[item.metric], format(point.value), CHECKPOINT[point.checkpoint || point.snapshot?.checkpoint] || '—', timestamp(point.snapshot?.capturedAt), timestamp(point.snapshot?.targetAt), deltaText(point.snapshot), ORIGIN[point.snapshot?.source] || point.snapshot?.source || '—']))

@@ -189,7 +189,7 @@ describe('dashboard configuration', () => {
     expect(target.querySelectorAll('.analytics-chart-card')).toHaveLength(2)
     expect(target.textContent).not.toContain('每周互动')
     const other = document.createElement('section'); renderAnalytics(other, { ...state, workspaceId: 'other' })
-    expect(other.querySelector('h3').textContent).toBe('多内容对比')
+    expect(other.querySelector('h3').textContent).toBe('选题跨平台对比')
   })
   it('preserves an empty dashboard and recovers from invalid saved JSON', () => {
     const state = { workspaceId: 'empty-test' }

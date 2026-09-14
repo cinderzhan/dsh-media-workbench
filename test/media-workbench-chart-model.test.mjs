@@ -35,3 +35,47 @@ describe('analytics view controls',()=>{
  });
  it('renders negative, missing and invalid timestamp values without invalid SVG coordinates',()=>{const root=document.createElement('section');document.body.append(root);const data=structuredClone(state);data.snapshots.push(snap('b','bad-date',{views:100}));data.snapshots.push(snap('d','2026-09-05T00:00:00Z',{views:-5}));renderAnalytics(root,data);const card=()=>root.querySelectorAll('.analytics-chart-card')[1];expect(card().querySelector('.analytics-svg').outerHTML).not.toMatch(/NaN|Infinity/);expect(root.textContent).toContain('-5');root.remove()});
 });
+describe('topic-grouped content bars', () => {
+ it('places platforms side by side under the same topic and preserves duplicate platform slots', () => {
+  const data = structuredClone(state); data.publications.push(pub('b2')); data.snapshots.push(snap('b2', '2026-09-05T00:00:00Z', { views: 7 }))
+  const chart = model({}, data, ['b', 'b2', 'd'])
+  expect(chart.categories).toEqual([{ key: 'topic:t', label: '选题：桌面端介绍' }])
+  expect(chart.series.map(s => [s.platform, s.slot])).toEqual([['bilibili', 0], ['bilibili', 1], ['douyin', 0]])
+  expect(values(chart).sort((a, b) => a - b)).toEqual([7, 20, 40])
+  expect(chart.series[0].colorIndex).toBe(chart.series[1].colorIndex)
+  expect(chart.series[0].points[0].groupLabel).toBe('选题：桌面端介绍')
+ })
+ it('keeps missing platform slots null and actual zero numeric across multiple topics', () => {
+  const data = { publications: [pub('a', 'bilibili', 't1'), pub('b', 'douyin', 't1'), pub('c', 'bilibili', 't2')], snapshots: [snap('a', '2026-09-01', { views: 0 }), snap('b', '2026-09-01', { views: 9 }), snap('c', '2026-09-01', { likes: 3 })] }
+  const chart = model({}, data, ['a', 'b', 'c'])
+  expect(chart.categories).toHaveLength(2)
+  expect(values(chart).sort((a, b) => a - b)).toEqual([0, 9])
+  expect(chart.series.find(s => s.platform === 'douyin').points.find(p => p.x === 'topic:t2')).toMatchObject({ value: null, publication: null })
+  expect(chart.series.find(s => s.platform === 'bilibili').points.find(p => p.x === 'topic:t2')).toMatchObject({ value: null, publication: { id: 'c' } })
+ })
+ it('groups external records by creator and campaign identity, never by duplicate titles', () => {
+  const data = { creators: [{ id: 'k', name: '作者甲' }], campaigns: [{ id: 'c', name: '发布周' }], publications: [
+   { ...pub('a'), topicId: null, creatorId: 'k', campaignId: 'c' }, { ...pub('b', 'douyin'), topicId: null, creatorId: 'k', campaignId: 'c' },
+   { ...pub('c'), topicId: null, creatorId: 'k', campaignId: 'other' }, { ...pub('d'), topicId: null }, { ...pub('e'), topicId: null }
+  ] }
+  const chart = model({}, data, ['a', 'b', 'c', 'd', 'e'])
+  expect(chart.categories).toHaveLength(4)
+  expect(chart.categories.some(category => category.label === '达人：作者甲 · 项目：发布周')).toBe(true)
+  expect(chart.categories.map(category => category.key)).toContain('publication:d')
+  expect(chart.categories.map(category => category.key)).toContain('publication:e')
+ })
+ it('keeps platform ordering and colors fixed when values or filters change', () => {
+  const before = model(); const changed = structuredClone(state); changed.snapshots.push(snap('d', '2026-09-09', { views: 999 }))
+  const after = model({}, changed)
+  expect(after.series.map(s => [s.id, s.colorIndex])).toEqual(before.series.map(s => [s.id, s.colorIndex]))
+  expect(model({ platform: 'douyin' }).series[0].colorIndex).toBe(before.series.find(s => s.platform === 'douyin').colorIndex)
+ })
+ it('initial selection includes complete topic groups beyond five publications', () => {
+  const root = document.createElement('section')
+  const publications = ['t1', 't2'].flatMap(topic => ['bilibili', 'douyin', 'xiaohongshu'].map(platform => pub(`${topic}-${platform}`, platform, topic)))
+  renderAnalytics(root, { workspaceId: 'complete-group-selection', publications, snapshots: publications.map((p, i) => snap(p.id, '2026-09-01', { views: i })) })
+  const card = root.querySelector('.analytics-chart-card')
+  expect(card.querySelectorAll('.analytics-picker-row input:checked')).toHaveLength(6)
+  expect(card.querySelectorAll('.analytics-series-chart rect')).toHaveLength(6)
+ })
+})

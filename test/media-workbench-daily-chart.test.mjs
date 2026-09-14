@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {it,expect,beforeEach,vi} from 'vitest'
-import {dailySeries,renderDailyChart} from '../packages/dsh-media-workbench/public/daily-chart.js'
+import {dailySeries,renderDailyChart,dailyPublicationAnnotations} from '../packages/dsh-media-workbench/public/daily-chart.js'
 beforeEach(()=>{const saved=new Map();vi.stubGlobal('localStorage',{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value)});document.body.replaceChildren()})
 const records=[{date:'2026-09-01',downloads:0,stars:2,groupJoins:3,leads:4},{date:'2026-09-02',downloads:10,stars:null,groupJoins:4,leads:5},{date:'2026-09-04',downloads:20,stars:8,groupJoins:5,leads:6}]
 const mount=(rows=records,namespace)=>{const root=document.createElement('div');document.body.append(root);renderDailyChart(root,rows,namespace);return root}
@@ -28,4 +28,22 @@ it('retains unsaved edits across data refresh and cancels an unsaved added chart
 it('uses actual calendar range and includes more than thirty records for all dates',()=>{
  const rows=Array.from({length:50},(_,i)=>({date:new Date(Date.UTC(2026,6,1+i)).toISOString().slice(0,10),downloads:i}));const root=mount(rows);const form=root.querySelector('form');form.querySelectorAll('select')[1].value='all';form.dispatchEvent(new Event('submit',{cancelable:true}));expect(root.querySelector('.daily-chart-card').querySelectorAll('circle')).toHaveLength(50)
  const refreshedForm=root.querySelector('form');refreshedForm.querySelectorAll('select')[1].value='7';refreshedForm.dispatchEvent(new Event('submit',{cancelable:true}));expect(root.querySelector('.daily-chart-card').querySelectorAll('circle')).toHaveLength(7)
+})
+it('saves a publication annotation dropdown selection and merges same-day platforms',()=>{
+ const context={topics:[{id:'t',title:'发布演示'},{id:'other',title:'另一个选题'}],publications:[{id:'a',topicId:'t',platform:'bilibili',publishedAt:'2026-09-02'},{id:'b',topicId:'t',platform:'douyin',publishedAt:'2026-09-02'},{id:'c',topicId:'t',publishedAt:'2026-08-01'},{id:'d',topicId:'t',scheduledAt:'2026-09-03'},{id:'e',topicId:'other',publishedAt:'2026-09-03'}]}
+ const root=document.createElement('section');document.body.append(root);renderDailyChart(root,records,'annotations',context)
+ expect(root.querySelector('[data-publication-date]')).toBeNull()
+ const form=root.querySelector('form'),picker=form.querySelector('.daily-annotation-picker');expect(picker.open).toBe(false)
+ picker.open=true;picker.querySelector('input').click();expect(picker.querySelector('summary').textContent).toContain('已选 1')
+ form.dispatchEvent(new Event('submit',{cancelable:true}))
+ const marks=root.querySelectorAll('[data-publication-date]');expect(marks).toHaveLength(1);expect(marks[0].dataset.publicationDate).toBe('2026-09-02')
+ marks[0].focus();const tooltip=document.querySelector('[role=tooltip]');expect(tooltip.textContent).toContain('发布演示');expect(tooltip.textContent).toContain('B站');expect(tooltip.textContent).toContain('抖音')
+ root.querySelector('[data-daily-series] [tabindex]').focus();expect(tooltip.textContent).toContain('下载量');expect(tooltip.textContent).not.toContain('发布演示')
+ const restored=document.createElement('section');document.body.append(restored);renderDailyChart(restored,records,'annotations',context);expect(restored.querySelectorAll('[data-publication-date]')).toHaveLength(1)
+ const restoredForm=restored.querySelector('form');restoredForm.querySelectorAll('select')[1].value='custom';const dates=restoredForm.querySelectorAll('[type=date]');dates[0].value='2026-09-04';dates[1].value='2026-09-04';restoredForm.dispatchEvent(new Event('submit',{cancelable:true}));expect(restored.querySelector('[data-publication-date]')).toBeNull()
+})
+it('uses local publication day, excludes absent/invalid dates and respects selected topics',()=>{
+ const timestamp='2026-09-02T23:30:00-07:00',date=new Date(timestamp),local=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
+ const context={topics:[{id:'t',title:'选题'}],publications:[{topicId:'t',publishedAt:timestamp},{topicId:'t',publishedAt:'2026-09-02'},{topicId:'t',publishedAt:'invalid'},{topicId:'t',publishedAt:'2026-02-31'},{topicId:'t',scheduledAt:'2026-09-02'},{topicId:'t',publishedAt:'2026-09-02',archivedAt:'yes'}]}
+ const annotations=dailyPublicationAnnotations(context,['t']);expect(annotations.flatMap(group=>group.items)).toHaveLength(2);expect(annotations.some(group=>group.date===local)).toBe(true);expect(annotations.some(group=>group.date==='2026-09-02')).toBe(true);expect(dailyPublicationAnnotations(context,[])).toEqual([])
 })

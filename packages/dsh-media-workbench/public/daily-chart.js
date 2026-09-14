@@ -1,4 +1,4 @@
-import { installChartInteraction } from './chart-interaction.js'
+import { installChartInteraction, exactChartTime } from './chart-interaction.js'
 export const dailyMetrics = [
   {key:'downloads',label:'下载量',color:'#4263EB'},
   {key:'stars',label:'新增 GitHub Star',color:'#B86D16'},
@@ -21,8 +21,25 @@ export function dailySeries(records,selected=dailyMetrics.map(m=>m.key),limit=30
 }
 const element=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node}
 const sessions=new WeakMap()
+const publicationPlatforms={bilibili:'B站',douyin:'抖音',xiaohongshu:'小红书',weixin_channels:'视频号',weixin_article:'微信公众号'}
+export function dailyPublicationAnnotations(context,topicIds,start,end){
+ const selected=new Set(Array.isArray(topicIds)?topicIds:[]),groups=new Map()
+ for(const publication of context.publications||[]){
+  if(publication.archivedAt||!selected.has(publication.topicId)||!publication.publishedAt)continue
+  const topic=(context.topics||[]).find(item=>item.id===publication.topicId)
+  if(!topic||topic.archivedAt)continue
+  const raw=publication.publishedAt,date=new Date(raw)
+  if(!Number.isFinite(date.getTime()))continue
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)&&date.toISOString().slice(0,10)!==raw)continue
+  const day=/^\d{4}-\d{2}-\d{2}$/.test(raw)?raw:`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
+  if((start&&day<start)||(end&&day>end))continue
+  if(!groups.has(day))groups.set(day,[])
+  groups.get(day).push({publication,topic,date:day})
+ }
+ return [...groups].sort(([a],[b])=>a.localeCompare(b)).map(([date,items])=>({date,items}))
+}
 const defaults=()=>dailyMetrics.map(metric=>({id:metric.key,title:metric.label,metrics:[metric.key],type:'line',range:'30',start:'',end:''}))
-export function renderDailyChart(container,records,namespace='default'){
+export function renderDailyChart(container,records,namespace='default',context={}){
  const previous=sessions.get(container)?.()
  const storageKey=`dsh.daily-charts.v1:${namespace}`
  let charts=defaults()
@@ -56,6 +73,15 @@ export function renderDailyChart(container,records,namespace='default'){
     return { mark, title: config.title, metric: metric.label, value, color: metric.color, details: [`日期：${date}`, '每日新增值'] }
    })
   })
+  const annotations=node('g',{'class':'daily-publication-guides','aria-hidden':'true'})
+  for(const annotation of dailyPublicationAnnotations(context,config.topicIds,rows[0].date,rows.at(-1).date)){
+   const px=x(Date.parse(annotation.date+'T00:00:00Z'))
+   annotations.append(node('line',{x1:px,x2:px,y1:top,y2:top+ph,stroke:'#aab1bc','stroke-width':1,'stroke-dasharray':'3 4','pointer-events':'none'}))
+   const mark=node('path',{d:`M ${px} ${height-12} l 4 4 l -4 4 l -4 -4 Z`,fill:'#808a99','data-publication-date':annotation.date,role:'img','aria-label':`${annotation.date} 发布标注：${annotation.items.map(item=>item.topic.title).join('、')}`})
+   svg.append(mark)
+   entries.push({mark,title:'发布标注',metric:'发布日期',value:annotation.date,color:'#808a99',details:annotation.items.map(({publication,topic})=>`${topic.title||'未命名选题'} · ${publicationPlatforms[publication.platform]||publication.platform||'未知平台'} · ${/^\d{4}-\d{2}-\d{2}$/.test(publication.publishedAt)?publication.publishedAt:exactChartTime(publication.publishedAt)}`)})
+  }
+  svg.insertBefore(annotations,svg.firstChild)
   svg.setAttribute('preserveAspectRatio', 'none')
   installChartInteraction(svg, entries)
   target.append(svg)
@@ -67,6 +93,7 @@ export function renderDailyChart(container,records,namespace='default'){
    const card=element('article','daily-chart-card'),head=element('div','daily-chart-head'),title=element('h4','',config.title),actions=element('div','daily-chart-actions'),edit=element('button','','编辑'),remove=element('button','','删除')
    edit.type=remove.type='button';edit.setAttribute('aria-label',`编辑${config.title}`);remove.setAttribute('aria-label',`删除${config.title}`);actions.append(edit,remove);head.append(title,actions);card.append(head)
    const legend=element('div','daily-chart-legend');for(const metric of dailyMetrics.filter(m=>config.metrics.includes(m.key))){const label=element('span','',metric.label),dot=element('i');dot.style.background=metric.color;label.prepend(dot);legend.append(label)}if(config.metrics.length===1&&dailyMetrics.find(m=>m.key===config.metrics[0])?.label===config.title)legend.replaceChildren();card.append(legend)
+   if(Array.isArray(config.topicIds)&&config.topicIds.length){const label=element('span','','发布标注'),dot=element('i','daily-annotation-legend');label.prepend(dot);legend.append(label)}
    const graph=element('div','daily-chart-plot');drawGraph(graph,config);card.append(graph)
    card.append(element('p','daily-chart-note',`${config.range==='custom'?`${config.start||'起始'} 至 ${config.end||'最新'}`:config.range==='all'?'全部日期':`截至最新记录的 ${config.range} 天`}`))
    const settings=element('form','daily-chart-settings');settings.dataset.chartId=config.id;settings.hidden=config.id!==editId
@@ -76,14 +103,22 @@ export function renderDailyChart(container,records,namespace='default'){
    const metrics=element('fieldset');metrics.append(element('legend','','选择指标'));const checks=[];for(const metric of dailyMetrics){const label=element('label'),check=element('input');check.type='checkbox';check.value=metric.key;check.checked=config.metrics.includes(metric.key);checks.push(check);label.append(check,document.createTextNode(metric.label));metrics.append(label)}settings.append(metrics)
    const range=element('select');for(const[value,text]of [['7','最近 7 天'],['30','最近 30 天'],['90','最近 90 天'],['all','全部日期'],['custom','自定义日期']]){const option=element('option','',text);option.value=value;range.append(option)}range.value=config.range;field('日期范围',range)
    const dates=element('div','daily-chart-dates'),start=element('input'),end=element('input');start.type=end.type='date';start.value=config.start||'';end.value=config.end||'';start.setAttribute('aria-label','开始日期');end.setAttribute('aria-label','结束日期');dates.append(start,end);dates.hidden=range.value!=='custom';range.onchange=()=>{dates.hidden=range.value!=='custom'};settings.append(dates)
+   const annotationPicker=element('details','daily-annotation-picker'),annotationSummary=element('summary'),annotationList=element('div','daily-annotation-options'),topicChecks=[]
+   const updateAnnotationSummary=()=>{annotationSummary.textContent=`发布标注 · ${topicChecks.filter(check=>check.checked).length ? `已选 ${topicChecks.filter(check=>check.checked).length} 个选题` : '不显示'}`}
+   for(const topic of (context.topics||[]).filter(item=>!item.archivedAt)){
+    const label=element('label'),check=element('input');check.type='checkbox';check.value=topic.id;check.checked=Array.isArray(config.topicIds)&&config.topicIds.includes(topic.id);check.dataset.annotationTopic=topic.id;check.addEventListener('change',updateAnnotationSummary);topicChecks.push(check);label.append(check,document.createTextNode(topic.title||'未命名选题'));annotationList.append(label)
+   }
+   if(!topicChecks.length)annotationList.append(element('p','','暂无可选选题'))
+   updateAnnotationSummary();annotationPicker.append(annotationSummary,annotationList);settings.append(annotationPicker)
    const error=element('p','daily-chart-error');error.setAttribute('role','alert');const buttons=element('div','daily-chart-form-actions'),save=element('button','','保存图表'),cancel=element('button','','取消');save.type='submit';cancel.type='button';buttons.append(save,cancel);settings.append(error,buttons);card.append(settings)
    edit.onclick=()=>{settings.hidden=!settings.hidden;edit.setAttribute('aria-expanded',String(!settings.hidden));if(!settings.hidden)input.focus()};edit.setAttribute('aria-expanded',String(!settings.hidden));cancel.onclick=()=>{if(config.unsaved){charts=charts.filter(c=>c.id!==config.id)}render()};remove.onclick=()=>{charts=charts.filter(c=>c.id!==config.id);persist();render()}
-   settings.onsubmit=event=>{event.preventDefault();if(!input.value.trim()){error.textContent='请填写图表名称';return}if(!checks.some(c=>c.checked)){error.textContent='请选择至少一项指标';return}if(range.value==='custom'&&start.value&&end.value&&start.value>end.value){error.textContent='结束日期不能早于开始日期';return}delete config.unsaved;Object.assign(config,{title:input.value.trim(),type:type.value,metrics:checks.filter(c=>c.checked).map(c=>c.value),range:range.value,start:start.value,end:end.value});persist();render()};grid.append(card)
+   settings.onsubmit=event=>{event.preventDefault();if(!input.value.trim()){error.textContent='请填写图表名称';return}if(!checks.some(c=>c.checked)){error.textContent='请选择至少一项指标';return}if(range.value==='custom'&&start.value&&end.value&&start.value>end.value){error.textContent='结束日期不能早于开始日期';return}delete config.unsaved;Object.assign(config,{title:input.value.trim(),type:type.value,metrics:checks.filter(c=>c.checked).map(c=>c.value),range:range.value,start:start.value,end:end.value,topicIds:topicChecks.filter(check=>check.checked).map(check=>check.value)});persist();render()};grid.append(card)
   }
  }
  add.onclick=()=>{const id=globalThis.crypto?.randomUUID?.()||`chart-${Date.now()}-${Math.random()}`;charts.push({id,unsaved:true,title:'自定义图表',metrics:['downloads'],type:'line',range:'30',start:'',end:''});render(id)}
  render(previous?.editId)
  if(previous?.values){const form=[...grid.querySelectorAll('form')].find(f=>f.dataset.chartId===previous.editId);if(form){[...form.elements].forEach((el,i)=>{const saved=previous.values[i];if(saved&&'value' in el){el.value=saved.value;if(el.type==='checkbox')el.checked=saved.checked}});form.querySelector('.daily-chart-dates').hidden=form.querySelectorAll('select')[1].value!=='custom'}}
+ for(const check of grid.querySelectorAll('[data-annotation-topic]'))check.dispatchEvent(new Event('change'))
  sessions.set(container,()=>{const form=[...grid.querySelectorAll('form')].find(f=>!f.hidden);return {charts,editId:form?.dataset.chartId,values:form?[...form.elements].map(el=>({value:el.value,checked:el.checked})):null}})
  return wrap
 }

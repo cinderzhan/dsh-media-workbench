@@ -176,7 +176,7 @@ function modelChart(model, prefix) {
   const lines = svgNode('g'), marks = svgNode('g'); svg.append(lines, marks)
   series.forEach((item, index) => {
     const color = SERIES_COLORS[index % SERIES_COLORS.length]
-    let path = '', connected = false
+    let path = '', connected = false, segment = 0
     item.points.forEach(point => {
       if (!numeric(point.value) || (isTime && !numeric(point.x))) { connected = false; return }
       const px = x(point.x), py = y(point.value)
@@ -184,8 +184,10 @@ function modelChart(model, prefix) {
       const label = `${point.publication ? publicationName(point.publication) : item.label}；${METRIC[item.metric]}：${format(point.value)}；${point.checkpoint ? CHECKPOINT[point.checkpoint] + '；' : ''}采集 ${timestamp(point.snapshot?.capturedAt)}；${ORIGIN[point.snapshot?.source] || point.snapshot?.source || '—'}；${deltaText(point.snapshot)}`
       let mark
       if (chartType === 'line') {
+        if (!connected) segment++
         path += `${connected ? 'L' : 'M'}${px},${py} `; connected = true
         mark = svgNode('circle', { cx: px, cy: py, r: 3.5, fill: color, stroke: '#fff', 'stroke-width': 2 })
+        mark.dataset.lineSegment = `${index}:${segment}`
       } else {
         const groupWidth = isTime ? 24 : plotWidth / Math.max(1, categories.length) * 0.72
         const barWidth = Math.min(28, groupWidth / Math.max(1, series.length))

@@ -1,5 +1,15 @@
 // Shared pointer, keyboard and touch inspection for both local SVG renderers.
 let tooltip, active, observer
+const chartObservers = new Map()
+function watchRemoval() {
+  if (observer) return
+  observer = new MutationObserver(() => {
+    if (active && !active.isConnected) hide()
+    for (const [svg, resize] of chartObservers) if (!svg.isConnected) { resize.disconnect(); chartObservers.delete(svg) }
+  })
+  observer.observe(document.body, { childList: true, subtree: true })
+}
+let listenersInstalled = false
 function hide() {
   if (active) { active.classList.remove('chart-mark-active'); active.removeAttribute('aria-describedby') }
   active = null
@@ -14,13 +24,13 @@ function getTooltip() {
   tooltip.hidden = true
   document.body.append(tooltip)
   tooltip.addEventListener('pointerleave', hide)
-  if (!observer) {
+  if (!listenersInstalled) {
+    listenersInstalled = true
     document.addEventListener('keydown', event => { if (event.key === 'Escape') hide() })
     window.addEventListener('resize', hide)
     window.addEventListener('scroll', hide, true)
     document.addEventListener('pointerdown', event => { if (active && event.target !== active && !tooltip?.contains(event.target)) hide() })
-    observer = new MutationObserver(() => { if (active && !active.isConnected) hide() })
-    observer.observe(document.body, { childList: true, subtree: true })
+    watchRemoval()
   }
   return tooltip
 }
@@ -30,6 +40,32 @@ export function exactChartTime(value) {
 }
 export function installChartInteraction(svg, entries) {
   svg.setAttribute('role', 'group')
+  // Suppress paint only: retain every original point, path vertex and tooltip.
+  const segments = new Map()
+  for (const { mark } of entries) if (mark.dataset.lineSegment) {
+    const key = mark.dataset.lineSegment
+    if (!segments.has(key)) segments.set(key, [])
+    segments.get(key).push(mark)
+  }
+  const updateMarkers = () => {
+    const width = svg.getBoundingClientRect().width || 560
+    const scale = width / (Number(svg.getAttribute('viewBox')?.split(/\s+/)[2]) || 560)
+    for (const marks of segments.values()) {
+      let previousX = -Infinity
+      marks.forEach((mark, index) => {
+        const x = Number(mark.getAttribute('cx')) * scale
+        const endpoint = index === 0 || index === marks.length - 1
+        const visible = endpoint || x - previousX >= 32
+        mark.classList.toggle('chart-marker-suppressed', !visible)
+        if (visible) previousX = x
+      })
+    }
+  }
+  updateMarkers()
+  if (segments.size && typeof ResizeObserver !== 'undefined') {
+    const resize = new ResizeObserver(updateMarkers)
+    resize.observe(svg); chartObservers.set(svg, resize); watchRemoval()
+  }
   const show = (entry, event) => {
     const box = getTooltip()
     if (active !== entry.mark || box.hidden) {
@@ -73,7 +109,9 @@ export function installChartInteraction(svg, entries) {
     for (const { entry, rect } of geometry) {
       const dx = Math.max(rect.left - event.clientX, 0, event.clientX - rect.right)
       const dy = Math.max(rect.top - event.clientY, 0, event.clientY - rect.bottom)
-      const current = Math.hypot(dx, dy)
+      const current = entry.mark.tagName.toLowerCase() === 'circle'
+        ? Math.hypot(event.clientX - (rect.left + rect.right) / 2, event.clientY - (rect.top + rect.bottom) / 2)
+        : Math.hypot(dx, dy)
       if (current < distance) { distance = current; nearest = entry }
     }
     if (nearest) show(nearest, event)

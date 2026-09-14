@@ -2,6 +2,7 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { renderAnalytics, deriveAnalyticsRows } from '../packages/dsh-media-workbench/public/analytics.js'
 import { renderDailyChart } from '../packages/dsh-media-workbench/public/daily-chart.js'
+import { installChartInteraction } from '../packages/dsh-media-workbench/public/chart-interaction.js'
 beforeEach(() => { document.body.replaceChildren(); vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} }) })
 const mountAnalytics = () => {
   const root = document.createElement('section'); document.body.append(root)
@@ -39,4 +40,45 @@ it('honors explicit publication source and falls back for legacy records', () =>
   const state = { publications: [{ id: 'a', source: 'creator' }, { id: 'b', creatorId: 'c' }, { id: 'c', source: 'official', creatorId: 'stale' }] }
   expect(deriveAnalyticsRows(state, { owner: 'creator' }).map(row => row.publication.id)).toEqual(['a', 'b'])
   expect(deriveAnalyticsRows(state, { owner: 'official' }).map(row => row.publication.id)).toEqual(['c'])
+})
+it('suppresses dense 1279-point interiors without dropping raw vertices or exact-value inspection', () => {
+  const root = document.createElement('section'); document.body.append(root)
+  const snapshots = Array.from({ length: 1279 }, (_, index) => ({ publicationId: 'dense', capturedAt: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(), checkpoint: 'current', metrics: { views: index } }))
+  renderAnalytics(root, { publications: [{ id: 'dense', title: '密集历史', platform: 'bilibili' }], snapshots })
+  const svg = root.querySelectorAll('.analytics-chart-card')[1].querySelector('svg')
+  const marks = [...svg.querySelectorAll('[data-line-segment]')]
+  expect(marks).toHaveLength(1279)
+  expect(svg.querySelector('path').getAttribute('d').match(/[ML]/g)).toHaveLength(1279)
+  expect(marks.filter(mark => !mark.classList.contains('chart-marker-suppressed')).length).toBeLessThan(25)
+  expect(marks[0].classList.contains('chart-marker-suppressed')).toBe(false)
+  expect(marks.at(-1).classList.contains('chart-marker-suppressed')).toBe(false)
+  const interior = marks[637]; expect(interior.classList.contains('chart-marker-suppressed')).toBe(true)
+  interior.dispatchEvent(new MouseEvent('pointerenter')); expect(document.querySelector('[role=tooltip]').textContent).toContain('观看  637')
+  interior.focus(); expect(interior.classList.contains('chart-mark-active')).toBe(true)
+})
+
+it('daily dense lines keep zero, missing-data gaps and isolated endpoint markers', () => {
+  const root = document.createElement('section'); document.body.append(root)
+  const records = Array.from({ length: 1279 }, (_, index) => ({ date: new Date(Date.UTC(2020, 0, index + 1)).toISOString().slice(0, 10), downloads: index === 640 ? null : index }))
+  renderDailyChart(root, records)
+  const form = root.querySelector('form'); form.querySelectorAll('select')[1].value = 'all'; form.dispatchEvent(new Event('submit', { cancelable: true }))
+  const svg = root.querySelector('svg'), marks = [...svg.querySelectorAll('[data-line-segment]')]
+  expect(marks).toHaveLength(1278)
+  expect(svg.querySelectorAll('polyline')).toHaveLength(2)
+  expect([...svg.querySelectorAll('polyline')].reduce((sum, line) => sum + line.getAttribute('points').split(' ').length, 0)).toBe(1278)
+  expect(marks.filter(mark => !mark.classList.contains('chart-marker-suppressed')).length).toBeLessThan(30)
+  for (const value of ['0', '639', '641', '1278']) expect(svg.querySelector(`[data-value="${value}"]`).classList.contains('chart-marker-suppressed')).toBe(false)
+})
+
+it('recalculates marker density on resize and disconnects the observer when removed', async () => {
+  let resizeCallback; const disconnect = vi.fn()
+  vi.stubGlobal('ResizeObserver', class { constructor(callback) { resizeCallback = callback } observe() {} disconnect() { disconnect() } })
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 1000 100'); document.body.append(svg)
+  let width = 200; svg.getBoundingClientRect = () => ({ width })
+  const entries = Array.from({ length: 21 }, (_, index) => { const mark = document.createElementNS(svg.namespaceURI, 'circle'); mark.setAttribute('cx', index * 50); mark.dataset.lineSegment = 'one'; svg.append(mark); return { mark } })
+  installChartInteraction(svg, entries)
+  const narrowCount = svg.querySelectorAll('.chart-marker-suppressed').length
+  width = 1000; resizeCallback(); expect(svg.querySelectorAll('.chart-marker-suppressed').length).toBeLessThan(narrowCount)
+  svg.remove(); await Promise.resolve(); expect(disconnect).toHaveBeenCalledOnce()
+  vi.unstubAllGlobals()
 })

@@ -93,7 +93,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
         return () => { cancelled=true; if(dock){for(const frame of dock.frames)frames.delete(frame);dock.destroy()} style.remove();setChat(null) }
       }, [])
       return h(React.Fragment, null,
-        h('section', { 'aria-label':'内容运营工作台', style:{position:'absolute',inset:0,display:'flex',flexDirection:'column',background:'#ffffff',pointerEvents:'auto',overflow:'auto'} },
+        h('section', { 'aria-label':'内容运营工作台', style:{display:'flex',flexDirection:'column',flex:1,width:'100%',maxWidth:'100%',minWidth:0,minHeight:0,background:'#ffffff',pointerEvents:'auto',overflow:'hidden',boxSizing:'border-box'} },
           state.error && h('p',{role:'alert',style:{color:'#a12a25',margin:'6px 12px'}},state.error),
           h('div',{ref:dockRef,style:{flex:1,minHeight:0,height:'100%'}})),
         chat && createPortal(h('div',{style:{height:'100%',minHeight:0,display:'flex',flexDirection:'column'}},
@@ -106,7 +106,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
         ),chat)
       )
     }
-    ctx.effect(() => service.register({ id: workbenchId, version: '0.12.0', author: 'cinderzhan', title: '内容运营工作台', icon: '▦', description: '管理选题、达人、Campaign、营销日历和数据，保留四窗口布局与原生会话。', audience: '内容与自媒体运营', requirements: '业务资料可独立使用；会话使用 Desktop 模型配置。', initialization: 'empty', customFrame: true }, Panel))
+    ctx.effect(() => service.register({ id: workbenchId, version: '0.12.1', author: 'cinderzhan', title: '内容运营工作台', icon: '▦', description: '管理选题、达人、Campaign、营销日历和数据，保留四窗口布局与原生会话。', audience: '内容与自媒体运营', requirements: '业务资料可独立使用；会话使用 Desktop 模型配置。', initialization: 'empty', customFrame: true }, Panel))
   }
   return { inject: ['desktopWorkbenches', 'sessions', 'conversation'], apply }
 } })

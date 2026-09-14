@@ -56,7 +56,7 @@ const DEFAULTS = {
 const platformName = value => PLATFORM[value] || value || '未知平台'
 const publicationName = publication => `${publication.title || '未命名内容'} · ${platformName(publication.platform)}${publication.publishedAt ? ` · ${timestamp(publication.publishedAt)}` : ''}`
 function contentGroup(publication, state) {
-  if (publication.topicId) return { key: `topic:${publication.topicId}`, label: `选题：${state.topics?.find(item => item.id === publication.topicId)?.title || publication.topicId}` }
+  if (publication.topicId) return { key: `topic:${publication.topicId}`, label: state.topics?.find(item => item.id === publication.topicId)?.title || publication.topicId }
   if (publication.creatorId && publication.campaignId) {
     const creator = state.creators?.find(item => item.id === publication.creatorId)
     const campaign = state.campaigns?.find(item => item.id === publication.campaignId)
@@ -217,6 +217,18 @@ function modelChart(model, prefix) {
     const color = SERIES_COLORS[(item.colorIndex ?? index) % SERIES_COLORS.length]
     let path = '', connected = false, segment = 0
     item.points.forEach(point => {
+      if (xAxis === 'content' && chartType === 'bar' && point.publication && !numeric(point.value)) {
+        const barWidth = Math.min(28, plotWidth / Math.max(1, categories.length) * 0.72 / Math.max(1, series.length))
+        const px = x(point.x) - barWidth * series.length / 2 + index * barWidth + Math.max(1, barWidth - 2) / 2
+        const reason = point.snapshot ? `本次采集暂无${METRIC[item.metric]}数据` : '尚无采集记录'
+        const mark = svgNode('g', { class: 'analytics-missing-mark', 'data-missing-reason': point.snapshot ? 'metric' : 'snapshot', role: 'img', 'aria-label': `${point.groupLabel} · ${platformName(item.platform)} · ${reason}，不计为零` })
+        mark.append(svgNode('line', { x1: px - 5, x2: px + 5, y1: y(0), y2: y(0), stroke: color, 'stroke-width': 2, 'stroke-dasharray': '2 2' }), svgNode('text', { x: px, y: y(0) - 7, 'text-anchor': 'middle', fill: color, 'font-size': 13 }, '—'))
+        marks.append(mark)
+        // Display-only text; the underlying model remains null and never becomes zero.
+        entries.push({ mark, title: point.publication.title || point.groupLabel, metric: METRIC[item.metric], value: '—', color, details: [point.groupLabel, platformName(item.platform), reason, '缺失数据，不计为零', ...(point.snapshot ? [`采集时间：${exactChartTime(point.snapshot.capturedAt)}`] : [])] })
+        connected = false
+        return
+      }
       if (!numeric(point.value) || (isTime && !numeric(point.x))) { connected = false; return }
       const px = x(point.x), py = y(point.value)
       if (!numeric(px) || !numeric(py)) { connected = false; return }
@@ -234,6 +246,9 @@ function modelChart(model, prefix) {
       }
       mark.setAttribute('tabindex', '0'); mark.setAttribute('role', 'img'); mark.setAttribute('aria-label', label)
       marks.append(mark)
+      if (xAxis === 'content' && chartType === 'bar' && point.value === 0) {
+        marks.append(svgNode('text', { x: Number(mark.getAttribute('x')) + Number(mark.getAttribute('width')) / 2, y: y(0) - 7, 'text-anchor': 'middle', fill: color, 'font-size': 13, 'pointer-events': 'none' }, '0'))
+      }
       entries.push({ mark, title: point.publication?.title || item.label, metric: METRIC[item.metric], value: point.value, color,
         details: [...(point.groupLabel ? [point.groupLabel] : []), point.publication ? platformName(point.publication.platform) : item.label, `采集时间：${exactChartTime(point.snapshot?.capturedAt)}`, `发布后节点：${CHECKPOINT[point.checkpoint || point.snapshot?.checkpoint] || '—'} · ${ORIGIN[point.snapshot?.source] || point.snapshot?.source || '—'}`] })
     })
@@ -361,7 +376,9 @@ function renderCard(container, context, persist, remove) {
     model.series.forEach((item, index) => {
       const label = node('span'), swatch = node('i'); swatch.style.background = SERIES_COLORS[(item.colorIndex ?? index) % SERIES_COLORS.length]
       label.title = item.label; label.append(swatch, node('span', item.label)); legend.append(label)
-    }); container.append(legend)
+    });
+    if (model.xAxis === 'content' && model.chartType === 'bar' && missing) legend.append(node('span', '— 数据缺失（非 0），悬停查看原因', 'analytics-missing-key'))
+    container.append(legend)
     const detailRows = model.series.flatMap(item => item.points.filter(point => point.publication).map(point => [point.publication.title || '未命名内容', point.publication.id, platformName(point.publication.platform), METRIC[item.metric], format(point.value), CHECKPOINT[point.checkpoint || point.snapshot?.checkpoint] || '—', timestamp(point.snapshot?.capturedAt), timestamp(point.snapshot?.targetAt), deltaText(point.snapshot), ORIGIN[point.snapshot?.source] || point.snapshot?.source || '—']))
     const detailBody = node('div'); detailBody.append(node('p', model.notes.join(' '), 'analytics-note'), dataTable(['内容', '发布记录 ID', '平台', '指标', '数值', '发布后节点', '实际采集时间', '目标时间', '时间偏差', '采集来源'], detailRows, `${VIEW[view]}的原始采集记录；缺失值为 —，真实 0 保留。`))
     const details = disclosure('数据明细与统计口径', detailBody); details.className = 'analytics-data-details'

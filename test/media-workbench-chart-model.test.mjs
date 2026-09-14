@@ -39,11 +39,11 @@ describe('topic-grouped content bars', () => {
  it('places platforms side by side under the same topic and preserves duplicate platform slots', () => {
   const data = structuredClone(state); data.publications.push(pub('b2')); data.snapshots.push(snap('b2', '2026-09-05T00:00:00Z', { views: 7 }))
   const chart = model({}, data, ['b', 'b2', 'd'])
-  expect(chart.categories).toEqual([{ key: 'topic:t', label: '选题：桌面端介绍' }])
+  expect(chart.categories).toEqual([{ key: 'topic:t', label: '桌面端介绍' }])
   expect(chart.series.map(s => [s.platform, s.slot])).toEqual([['bilibili', 0], ['bilibili', 1], ['douyin', 0]])
   expect(values(chart).sort((a, b) => a - b)).toEqual([7, 20, 40])
   expect(chart.series[0].colorIndex).toBe(chart.series[1].colorIndex)
-  expect(chart.series[0].points[0].groupLabel).toBe('选题：桌面端介绍')
+  expect(chart.series[0].points[0].groupLabel).toBe('桌面端介绍')
  })
  it('keeps missing platform slots null and actual zero numeric across multiple topics', () => {
   const data = { publications: [pub('a', 'bilibili', 't1'), pub('b', 'douyin', 't1'), pub('c', 'bilibili', 't2')], snapshots: [snap('a', '2026-09-01', { views: 0 }), snap('b', '2026-09-01', { views: 9 }), snap('c', '2026-09-01', { likes: 3 })] }

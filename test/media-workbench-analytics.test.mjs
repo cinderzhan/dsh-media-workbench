@@ -226,3 +226,23 @@ it('keeps the editor explicit and preserves a title draft and cursor during data
   expect(target.querySelector('.analytics-editor').open).toBe(false)
   target.remove()
 })
+it('shows per-platform missing reasons without inventing numeric bars, while labeling real zero', () => {
+  const root = document.createElement('section'); document.body.append(root)
+  const state = { workspaceId: 'missing-platforms', topics: [{ id: 't', title: '发布演示' }], publications: [
+    publication('a', { topicId: 't' }), publication('b', { topicId: 't', platform: 'xiaohongshu' }), publication('c', { topicId: 't', platform: 'douyin' }), publication('d', { topicId: 'other', platform: 'bilibili' })
+  ], snapshots: [snapshot('a', 0, '2026-09-14T12:00:00Z'), snapshot('b', undefined, '2026-09-14T12:00:00Z', { metrics: { likes: 100 } }), snapshot('d', 20, '2026-09-14T12:00:00Z')] }
+  renderAnalytics(root, state)
+  const card = root.querySelector('.analytics-chart-card')
+  expect(card.querySelectorAll('.analytics-series-chart rect')).toHaveLength(2)
+  expect(card.querySelectorAll('.analytics-missing-mark')).toHaveLength(2)
+  expect([...card.querySelectorAll('svg text')].some(text => text.textContent === '0')).toBe(true)
+  expect([...card.querySelectorAll('.analytics-axis-label')].some(text => text.firstChild?.nodeValue === '发布演示')).toBe(true)
+  const metric = card.querySelector('[data-missing-reason=metric]'); metric.focus()
+  let tooltip = document.querySelector('[role=tooltip]')
+  expect(tooltip.textContent).toContain('小红书'); expect(tooltip.textContent).toContain('发布演示'); expect(tooltip.textContent).toContain('本次采集暂无观看数据')
+  card.querySelector('[data-missing-reason=snapshot]').focus()
+  tooltip = document.querySelector('[role=tooltip]'); expect(tooltip.textContent).toContain('抖音'); expect(tooltip.textContent).toContain('尚无采集记录')
+  expect(tooltip.textContent).toContain('不计为零')
+  expect(card.querySelector('select[id$="metric"]').value).toBe('views')
+  root.remove()
+})

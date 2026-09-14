@@ -43,7 +43,7 @@ describe('media workbench domain', () => {
     state = applyMutation(state, { action: 'bindSession', data: { ...data, sessionId: 'session-2' } })
     expect(state.bindings).toHaveLength(2)
     expect(() => applyMutation(state, { action: 'bindSession', data: { sessionId: 'session-1', title: 'Move', scope: 'campaign', entityId: 'campaign' } })).toThrow('cannot move')
-    state = applyMutation(state, { action: 'archive', entity: 'topics', id: 'topic' })
+    expect(() => applyMutation(state, { action: 'archive', entity: 'topics', id: 'topic' })).toThrow('linked publications')
     expect(state.publications).toHaveLength(1)
     expect(state.bindings).toHaveLength(2)
     state = applyMutation(state, { action: 'archive', entity: 'bindings', id: state.bindings[0].id })
@@ -67,7 +67,7 @@ describe('media workbench domain', () => {
     expect(normalizePublicationUrl('https://m.bilibili.com/video/BV1Demo?share_source=x', 'bilibili')).toBe(normalizePublicationUrl('https://www.bilibili.com/video/BV1Demo/', 'bilibili'))
     expect(normalizePublicationUrl('https://www.douyin.com/?modal_id=123', 'douyin')).toBe('douyin:123')
     expect(normalizePublicationUrl('https://v.douyin.com/short/', 'douyin')).toBe('https://v.douyin.com/short/')
-    expect(() => applyMutation(seed(), { action: 'upsert', entity: 'publications', data: { title: 'Same', platform: 'bilibili', url: 'https://m.bilibili.com/video/BV1Demo?share_source=x' } })).toThrow('Duplicate publications')
+    expect(() => applyMutation(seed(), { action: 'upsert', entity: 'publications', data: { title: 'Same', topicId: 'topic', platform: 'bilibili', url: 'https://m.bilibili.com/video/BV1Demo?share_source=x' } })).toThrow('Duplicate publications')
   })
 
   it('stores optional actual publication costs and formats without changing legacy records', () => {

@@ -1,7 +1,8 @@
+import { installChartInteraction, exactChartTime } from './chart-interaction.js'
 const PLATFORM = { bilibili: 'B站', douyin: '抖音', xiaohongshu: '小红书', weixin_channels: '视频号', weixin_article: '微信公众号' }
 const METRIC = { views: '观看', reads: '文章阅读', likes: '点赞', comments: '评论', favorites: '收藏', shares: '转发', followers: '涨粉', coins: '投币', danmaku: '弹幕' }
 const CHECKPOINT = { '24h': '24 小时', '72h': '72 小时', current: '至今' }
-const SERIES_COLORS = ['#5B6CFF', '#12A594', '#F0A43A', '#A56EFF', '#EB6574', '#3498DB']
+const SERIES_COLORS = ['#4263EB', '#07877B', '#B86D16', '#7950B8', '#C64E65', '#247BA0']
 const ORIGIN = { manual: '手动', browser: '浏览器', direct: '直接读取', import: '导入' }
 const mounted = new WeakMap()
 const SVG = 'http://www.w3.org/2000/svg'
@@ -24,7 +25,7 @@ function deltaText(snapshot) {
 /** Latest matching checkpoint per publication, independent of whether its metric is missing. */
 export function deriveAnalyticsRows(state, filters = {}) {
   filters = { checkpoint: 'current', metric: 'views', ...filters }
-  const publications = (state.publications || []).filter(publication => !publication.archivedAt && (!filters.platform || publication.platform === filters.platform) && (!filters.owner || (filters.owner === 'creator' ? Boolean(publication.creatorId) : !publication.creatorId)))
+  const publications = (state.publications || []).filter(publication => !publication.archivedAt && (!filters.platform || publication.platform === filters.platform) && (!filters.owner || (filters.owner === (publication.source || (publication.creatorId ? 'creator' : 'official')))))
   const snapshots = (state.snapshots || []).filter(snapshot => !snapshot.archivedAt && (filters.checkpoint === 'current' || snapshot.checkpoint === filters.checkpoint) && (!filters.source || snapshot.source === filters.source))
   return publications.map(publication => {
     const history = snapshots.filter(snapshot => snapshot.publicationId === publication.id).sort((a, b) => (Date.parse(a.capturedAt) || 0) - (Date.parse(b.capturedAt) || 0) || String(a.createdAt || '').localeCompare(String(b.createdAt || '')))
@@ -156,20 +157,22 @@ function modelChart(model, prefix) {
   const title = `${VIEW[model.view]}，${chartType === 'line' ? '折线图' : '柱状图'}。横轴：${AXIS[xAxis]}；纵轴：${model.metrics.map(key => METRIC[key]).join('、')}（原始数量）。缺失值不按零计算。`
   const svg = chartSvg(title, width, height, `${prefix}-chart-title`)
   svg.style.minWidth = width > 900 ? `${width}px` : '0'
-  for (const fraction of [0, 0.5, 1]) {
+  for (const fraction of [0, 0.25, 0.5, 0.75, 1]) {
     const value = (minimum + (maximum - minimum) * fraction) * magnitude
-    svg.append(svgNode('line', { x1: left, x2: width - right, y1: y(value), y2: y(value), class: 'analytics-grid' }), svgNode('text', { x: left - 8, y: y(value) + 4, 'text-anchor': 'end', class: 'analytics-axis-label' }, Math.abs(value) >= 1e6 ? value.toExponential(1) : format(Math.round(value * 10) / 10)))
+    const axisValue=Math.abs(value)>=1e8?`${format(Math.round(value/1e7)/10)}亿`:Math.abs(value)>=1e4?`${format(Math.round(value/1e3)/10)}万`:format(Math.round(value*10)/10)
+    svg.append(svgNode('line', { x1: left, x2: width - right, y1: y(value), y2: y(value), class: 'analytics-grid' }), svgNode('text', { x: left - 8, y: y(value) + 4, 'text-anchor': 'end', class: 'analytics-axis-label' }, axisValue))
   }
   svg.append(svgNode('line', { x1: left, x2: width - right, y1: y(0), y2: y(0), class: 'analytics-baseline' }))
   if (isTime && times.length) {
     const ticks = minTime === maxTime ? [minTime] : [minTime, (minTime + maxTime) / 2, maxTime]
-    ticks.forEach((time, index) => svg.append(svgNode('text', { x: x(time), y: height - 31, 'text-anchor': ticks.length === 1 ? 'middle' : index === 0 ? 'start' : index === ticks.length - 1 ? 'end' : 'middle', class: 'analytics-axis-label' }, timestamp(new Date(time).toISOString()))))
+    ticks.forEach((time, index) => svg.append(svgNode('text', { x: x(time), y: height - 31, 'text-anchor': ticks.length === 1 ? 'middle' : index === 0 ? 'start' : index === ticks.length - 1 ? 'end' : 'middle', class: 'analytics-axis-label' }, new Date(time).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }))))
   } else categories.forEach(category => {
     const labelLimit = categories.length > 3 ? 5 : 9
     const label = svgNode('text', { x: x(category.key), y: height - 31, 'text-anchor': 'middle', class: 'analytics-axis-label' }, category.label.length > labelLimit ? `${category.label.slice(0, labelLimit - 1)}…` : category.label)
     label.append(svgNode('title', {}, category.label)); svg.append(label)
   })
   svg.append(svgNode('text', { x: left + plotWidth / 2, y: height - 7, 'text-anchor': 'middle', class: 'analytics-axis-label' }, `横轴：${AXIS[xAxis]}`))
+  const entries = []
   const lines = svgNode('g'), marks = svgNode('g'); svg.append(lines, marks)
   series.forEach((item, index) => {
     const color = SERIES_COLORS[index % SERIES_COLORS.length]
@@ -189,10 +192,13 @@ function modelChart(model, prefix) {
         mark = svgNode('rect', { x: px - barWidth * series.length / 2 + index * barWidth, y: Math.min(y(0), py), width: Math.max(1, barWidth - 2), height: Math.max(1, Math.abs(py - y(0))), rx: 4, fill: color })
       }
       mark.setAttribute('tabindex', '0'); mark.setAttribute('role', 'img'); mark.setAttribute('aria-label', label)
-      mark.append(svgNode('title', {}, label)); marks.append(mark)
+      marks.append(mark)
+      entries.push({ mark, title: point.publication?.title || item.label, metric: METRIC[item.metric], value: point.value, color,
+        details: [point.publication ? platformName(point.publication.platform) : item.label, `采集时间：${exactChartTime(point.snapshot?.capturedAt)}`, `发布后节点：${CHECKPOINT[point.checkpoint || point.snapshot?.checkpoint] || '—'} · ${ORIGIN[point.snapshot?.source] || point.snapshot?.source || '—'}`] })
     })
     if (chartType === 'line' && path) lines.append(svgNode('path', { d: path.trim(), fill: 'none', stroke: color, 'stroke-width': 2.25, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-dasharray': index >= SERIES_COLORS.length ? '5 3' : 'none' }))
   })
+  installChartInteraction(svg, entries)
   const wrap = node('div', undefined, 'analytics-series-chart'); wrap.append(svg)
   if (!values.length) wrap.append(node('p', '所选指标暂无可绘制数据，可在原始明细中查看采集记录。', 'analytics-empty'))
   return wrap
@@ -295,7 +301,7 @@ function renderCard(container, context, persist, remove) {
     for (const row of candidates) {
       const label = node('label', undefined, 'analytics-picker-row'), checkbox = node('input'); checkbox.type = 'checkbox'; checkbox.checked = selectedIds.has(row.publication.id); checkbox.dataset.publicationId = row.publication.id
       checkbox.addEventListener('change', () => { checkbox.checked ? selectedIds.add(row.publication.id) : selectedIds.delete(row.publication.id); context.selectedIds = selectedIds; draw(); [...container.querySelectorAll('[data-publication-id]')].find(input => input.dataset.publicationId === row.publication.id)?.focus() })
-      label.append(checkbox, node('span', row.publication.title || '未命名内容'), node('small', `${row.publication.creatorId ? '达人' : '官方'} · ${platformName(row.publication.platform)}`)); pickerList.append(label)
+      label.append(checkbox, node('span', row.publication.title || '未命名内容'), node('small', `${(row.publication.source || (row.publication.creatorId ? 'creator' : 'official')) === 'creator' ? '达人' : '官方'} · ${platformName(row.publication.platform)}`)); pickerList.append(label)
     }
     pickerBody.append(pickerList)
     const picker = disclosure(`选择内容 · ${model.rows.length} 条参与${view === 'history' ? '趋势' : '对比'}`, pickerBody); picker.className = 'analytics-picker'; picker.open = Boolean(context.pickerOpen)

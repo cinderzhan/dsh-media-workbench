@@ -1,8 +1,9 @@
+import { installChartInteraction } from './chart-interaction.js'
 export const dailyMetrics = [
-  {key:'downloads',label:'下载量',color:'#5B6CFF'},
-  {key:'stars',label:'新增 GitHub Star',color:'#F0A43A'},
-  {key:'groupJoins',label:'加群人数',color:'#12A594'},
-  {key:'leads',label:'线索人数',color:'#A56EFF'},
+  {key:'downloads',label:'下载量',color:'#4263EB'},
+  {key:'stars',label:'新增 GitHub Star',color:'#B86D16'},
+  {key:'groupJoins',label:'加群人数',color:'#07877B'},
+  {key:'leads',label:'线索人数',color:'#7950B8'},
 ]
 const DAY=86400000
 export function dailySeries(records,selected=dailyMetrics.map(m=>m.key),limit=30) {
@@ -46,7 +47,16 @@ export function renderDailyChart(container,records,namespace='default'){
   for(let i=0;i<=4;i++){const value=axisMax*i/4;svg.append(node('line',{x1:left,x2:width-right,y1:y(value),y2:y(value),stroke:'#eceeec'}),node('text',{x:left-10,y:y(value)+4,'text-anchor':'end',fill:'#737b73','font-size':11},value.toLocaleString('zh-CN')))}
   const count=Math.min(4,rows.length);for(const index of new Set(Array.from({length:count},(_,i)=>Math.round(i*(rows.length-1)/Math.max(1,count-1)))))svg.append(node('text',{x:x(Date.parse(rows[index].date+'T00:00:00Z')),y:height-12,'text-anchor':'middle',fill:'#737b73','font-size':11},rows[index].date.slice(5)))
   const barWidth=Math.min(22,(pw-2*padding)/Math.max(1,(last-first)/DAY+1)/Math.max(1,series.length)*.7)
-  series.forEach((metric,mi)=>{const group=node('g',{'data-daily-series':metric.key});for(const points of metric.segments){if(!bar&&points.length>1)group.append(node('polyline',{points:points.map(p=>`${x(p.time)},${y(p.value)}`).join(' '),fill:'none',stroke:metric.color,'stroke-width':2.25,'stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}));for(const p of points){const mark=bar&&p.value!==0?node('rect',{x:x(p.time)+(mi-series.length/2)*barWidth,y:y(p.value),width:Math.max(1,barWidth-2),height:Math.max(0,y(0)-y(p.value)),rx:4,fill:metric.color}):node('circle',{cx:x(p.time)+(bar?(mi-(series.length-1)/2)*barWidth:0),cy:y(p.value),r:3,fill:metric.color,stroke:'#fff','stroke-width':1.75});mark.setAttribute('tabindex','0');mark.setAttribute('aria-label',`${p.date} ${metric.label}：${p.value}`);mark.append(node('title',{},`${p.date} · ${metric.label}：${p.value.toLocaleString('zh-CN')}`));group.append(mark)}}svg.append(group)})
+  series.forEach((metric,mi)=>{const group=node('g',{'data-daily-series':metric.key});for(const points of metric.segments){if(!bar&&points.length>1)group.append(node('polyline',{points:points.map(p=>`${x(p.time)},${y(p.value)}`).join(' '),fill:'none',stroke:metric.color,'stroke-width':2.25,'stroke-linecap':'round','stroke-linejoin':'round','vector-effect':'non-scaling-stroke'}));for(const p of points){const mark=bar&&p.value!==0?node('rect',{x:x(p.time)+(mi-series.length/2)*barWidth,y:y(p.value),width:Math.max(1,barWidth-2),height:Math.max(0,y(0)-y(p.value)),rx:4,fill:metric.color}):node('circle',{cx:x(p.time)+(bar?(mi-(series.length-1)/2)*barWidth:0),cy:y(p.value),r:3,fill:metric.color,stroke:'#fff','stroke-width':1.75});mark.dataset.date=p.date;mark.dataset.value=String(p.value);mark.setAttribute('tabindex','0');mark.setAttribute('aria-label',`${p.date} ${metric.label}：${p.value}`);mark.append(node('title',{},`${p.date} · ${metric.label}：${p.value.toLocaleString('zh-CN')}`));group.append(mark)}}svg.append(group)})
+  const entries = [...svg.querySelectorAll('[data-daily-series]')].flatMap(group => {
+   const metric = dailyMetrics.find(item => item.key === group.dataset.dailySeries)
+   return [...group.querySelectorAll('[tabindex]')].map(mark => {
+    const date = mark.dataset.date, value = Number(mark.dataset.value)
+    mark.querySelector('title')?.remove()
+    return { mark, title: config.title, metric: metric.label, value, color: metric.color, details: [`日期：${date}`, '每日新增值'] }
+   })
+  })
+  installChartInteraction(svg, entries)
   target.append(svg)
  }
  function render(editId){

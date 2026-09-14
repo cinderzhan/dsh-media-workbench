@@ -104,7 +104,7 @@ description: 在已绑定内容运营工作台的 DSH 会话中，通过 media_w
 | `topics` | `title`, `status`, `scheduledAt`, `presenter`, `producer`, `campaignId`, `notes` |
 | `creators` | `name`, `platform`, `accountUrl`, `followers`, `contact`, `quote`, `notes` |
 | `campaigns` | `name`, `startDate`, `endDate`, `budget`, `notes` |
-| `publications` | `title`, `topicId`, `creatorId`, `campaignId`, `platform`, `url`, `scheduledAt`, `publishedAt`, `format`, `cost` |
+| `publications` | `title`, `source`, `topicId`, `creatorId`, `campaignId`, `platform`, `url`, `scheduledAt`, `publishedAt`, `format`, `cost` |
 | `snapshots` | `publicationId`, `checkpoint`, `capturedAt`, `targetAt`, `source`, `metrics` |
 | `daily` | `date`, `downloads`, `stars`, `groupJoins`, `leads`, `notes` |
 
@@ -114,6 +114,8 @@ description: 在已绑定内容运营工作台的 DSH 会话中，通过 media_w
 
 ## 必须保持的业务语义
 
+- 发布来源 `source` 为 `official` 或 `creator`；旧记录没有来源时按是否有 `creatorId` 判断。新建或编辑有链接的官方发布必须绑定真实选题 `topicId`；达人发布必须同时绑定真实达人 `creatorId` 和 `campaignId`。官方来源不能带 `creatorId`。不得编造、猜测或自动创建关联对象来绕过校验；缺少关联先向用户核实。无关联旧记录仍可读取，编辑时需补全关联。
+- 关联对象必须未归档；有链接发布引用的选题、达人或 Campaign 不可归档，先将发布改绑到正确对象。归档发布也保留此约束。
 - 一个视频选题可有多条平台发布记录。整体排期与各平台实际发布时间独立，不因拖动或改期重写实际发布时间。
 - 官号选题按视频管理，达人交付可包含文章。播放和阅读不可混称；账号总粉丝不能冒充单内容涨粉。
 - `24h`/`72h` 从对应发布记录的 `publishedAt` 分别计算，`targetAt` 为其加 24/72 小时。`capturedAt` 记录真实采集时间；延迟采集不等于历史时点值，分析必须标明延迟。

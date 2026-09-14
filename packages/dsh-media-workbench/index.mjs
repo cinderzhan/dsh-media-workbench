@@ -22,7 +22,7 @@ export async function apply(ctx, config = {}) {
     async execute(_args, exec) { exec.signal?.throwIfAborted(); return JSON.stringify(boundContext(await runtime.store.read(), exec.agent?.id)) }
   })
   const updateTool = defineTool({
-    name: 'media_workbench_update', description: '记录和整理内容运营数据，不发布或生成营销内容。先read取得revision，再传mutation JSON。禁止修改会话归属。',
+    name: 'media_workbench_update', description: '记录和整理内容运营数据，不发布或生成营销内容。先read取得revision，再传mutation JSON。发布链接必须先确认归属：source=official 必须有 topicId；source=creator 必须有 creatorId 和 campaignId。不得猜测归属，缺少信息先询问用户。禁止修改会话归属。',
     parameters: { command: { type: 'string', description: 'JSON: {action:upsert|archive|importCreators,entity:topics|creators|campaigns|publications|snapshots|daily,id?,data?,rows?,expectedRevision}' } }, output,
     async execute(args, exec) {
       exec.signal?.throwIfAborted()

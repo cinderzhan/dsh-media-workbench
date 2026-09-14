@@ -92,7 +92,8 @@ describe('media workbench experimental visible-page collector', () => {
     const runtime = createRuntime(root, { collector })
     try {
       await runtime.start()
-      await runtime.store.mutate({ action: 'upsert', entity: 'publications', id: 'work', data: { title: 'Test work', platform, url } })
+      await runtime.store.mutate({ action: 'upsert', entity: 'topics', id: 'topic', data: { title: 'Test topic' } })
+      await runtime.store.mutate({ action: 'upsert', entity: 'publications', id: 'work', data: { title: 'Test work', topicId: 'topic', platform, url } })
       const outcome = await runtime.collect('work')
       expect(outcome.status).toBe('manual_required')
       expect(outcome.message).toContain(message)

@@ -7,7 +7,7 @@ const fields = {
   topics: ['title', 'status', 'scheduledAt', 'presenter', 'producer', 'campaignId', 'notes'],
   creators: ['name', 'platform', 'accountUrl', 'followers', 'contact', 'quote', 'notes'],
   campaigns: ['name', 'startDate', 'endDate', 'budget', 'notes'],
-  publications: ['topicId', 'creatorId', 'campaignId', 'platform', 'url', 'publishedAt', 'scheduledAt', 'title', 'cost', 'format'],
+  publications: ['source', 'topicId', 'creatorId', 'campaignId', 'platform', 'url', 'publishedAt', 'scheduledAt', 'title', 'cost', 'format'],
   snapshots: ['publicationId', 'checkpoint', 'capturedAt', 'targetAt', 'source', 'metrics'],
   daily: ['date', 'downloads', 'stars', 'groupJoins', 'leads', 'notes'],
   bindings: ['sessionId', 'workbenchId', 'scope', 'entityId', 'title', 'lastUsedAt']
@@ -81,6 +81,7 @@ function validateRecord(state, entity, row) {
   if (entity === 'campaigns') { required(row.name, 'name'); if (present(row.startDate) && present(row.endDate) && Date.parse(row.startDate) > Date.parse(row.endDate)) fail('endDate precedes startDate') }
   if (entity === 'publications') {
     required(row.title, 'title'); oneOf(row.platform, PLATFORMS, 'platform')
+    if (present(row.source)) oneOf(row.source, ['official', 'creator'], 'source')
     if (present(row.url)) normalizePublicationUrl(row.url, row.platform)
     if (present(row.format)) oneOf(row.format, ['video', 'article'], 'format')
   }
@@ -149,11 +150,24 @@ export function applyMutation(state, command) {
     if (existing) next[entity][next[entity].indexOf(existing)] = row
     else next[entity].push(row)
     validateRecord(next, entity, row)
+    if (entity === 'publications') {
+      const source = row.source || (present(row.creatorId) ? 'creator' : 'official')
+      if (source === 'official' && present(row.creatorId)) fail('官方发布不能绑定 creatorId；请选择达人来源或清除达人')
+      if (present(row.url)) {
+        const requiredBindings = source === 'creator' ? [['creatorId', 'creators'], ['campaignId', 'campaigns']] : [['topicId', 'topics']]
+        for (const [key] of requiredBindings) required(row[key], key)
+        for (const [key, target] of [['topicId', 'topics'], ['creatorId', 'creators'], ['campaignId', 'campaigns']]) {
+          if (present(row[key]) && next[target].find(record => record.id === row[key])?.archivedAt) fail(`${key} cannot reference an archived ${target} record`)
+        }
+      }
+    }
   }
   if (command.action === 'archive') {
     if (entity === 'snapshots') fail('Snapshots are append-only')
     const row = next[entity].find(row => row.id === command.id)
     if (!row) fail('Record not found', 'NOT_FOUND')
+    const bindingKey = { topics: 'topicId', creators: 'creatorId', campaigns: 'campaignId' }[entity]
+    if (bindingKey && next.publications.some(publication => present(publication.url) && publication[bindingKey] === row.id)) fail(`Cannot archive ${entity}: linked publications still reference ${bindingKey}; reassign their bindings first`)
     row.archivedAt = now; row.updatedAt = now
   } else if (command.action === 'importCreators') {
     if (entity !== 'creators' || !Array.isArray(command.rows)) fail('importCreators requires creators rows')

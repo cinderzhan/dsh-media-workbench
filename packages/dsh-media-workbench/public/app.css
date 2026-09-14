@@ -57,3 +57,4 @@ select.topic-status{width:auto;min-width:90px;max-width:140px;cursor:pointer;bor
 .pane-view.compact-list-toolbar #actions{gap:4px;flex-wrap:nowrap}
 .pane-view.compact-list-toolbar #toolbar button,.pane-view.compact-list-toolbar #actions button,.pane-view.compact-list-toolbar #actions .button{flex-shrink:0;white-space:nowrap}
 .pane-view.compact-list-toolbar #content{grid-column:1/-1;min-width:0}
+.binding-notice{margin:8px 0 12px;padding:10px 12px;background:#fff8eb;color:#805c20;border-radius:6px;font-size:12px}.pane-view .binding-fix{display:block;margin-top:4px;border:0;padding:0;color:#805c20;text-decoration:underline;text-underline-offset:3px}.field[hidden]{display:none}

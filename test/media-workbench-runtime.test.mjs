@@ -256,7 +256,7 @@ describe('media workbench HTTP runtime', () => {
     expect((await runtime.store.read()).snapshots).toHaveLength(3)
     await runtime.store.mutate({ action: 'upsert', entity: 'topics', id: 'topic', data: { status: 'scheduled', scheduledAt: '2026-10-01T10:00:00Z' } })
     await runtime.store.mutate({ action: 'upsert', entity: 'publications', id: 'publication', data: { scheduledAt: '2026-10-01T10:00:00Z' } })
-    await runtime.store.mutate({ action: 'archive', entity: 'topics', id: 'topic' })
+    await expect(runtime.store.mutate({ action: 'archive', entity: 'topics', id: 'topic' })).rejects.toThrow('linked publications')
     expect((await runtime.store.read()).snapshots.find(s => s.checkpoint === '24h')).toEqual(snapshot)
     vi.setSystemTime(new Date('2026-09-04T20:00:00Z'))
     await runtime.tick()
@@ -423,7 +423,7 @@ describe('media workbench Harness registration', () => {
       try {
         expect(JSON.parse(await collector.execute({action:'open_browser',publicationId:''},exec)).status).toBe('ok')
         expect(openBrowser).toHaveBeenCalledOnce()
-        await mutate({action:'upsert',entity:'publications',id:'sample',data:{title:'Sample',platform:'bilibili',url:'https://www.bilibili.com/video/BV1niYu6LEtX/'}})
+        await mutate({action:'upsert',entity:'publications',id:'sample',data:{title:'Sample',topicId:updated.topics[0].id,platform:'bilibili',url:'https://www.bilibili.com/video/BV1niYu6LEtX/'}})
         expect(JSON.parse(await collector.execute({action:'collect',publicationId:'sample'},exec)).status).toBe('ok')
         const after = JSON.parse(await reader.execute({},exec))
         expect(after.data.snapshots[0]).toMatchObject({publicationId:'sample',source:'browser',checkpoint:'current',metrics:{likes:7}})

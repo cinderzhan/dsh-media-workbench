@@ -1,5 +1,6 @@
 # DSH 内容运营工作台
 
+v0.12.0 接入 Desktop 本地工作台市场，要求宿主提供 desktopWorkbenches ^0.1.0 的 customFrame 接口。保留四窗口布局、业务表单与显式新建会话流程；无需旧版 Profile 补丁。详见 [规范适配说明](docs/workbench-market-adapter.md)。
 v0.10.0：图表支持即时悬停、点击和键盘数值提示；新发布链接必须关联官号选题，或达人与 Campaign。历史未关联链接可在数据采集的“待绑定”中补齐。见 [UI/UX 检查报告](docs/chart-ui-ux-review.md)。
 
 用于管理官号选题、达人合作、Campaign、营销日历、内容数据及每日成果的 DSH Desktop 插件。
@@ -24,9 +25,7 @@ tar -xzf dsh-media-workbench-0.5.2.tgz -C dsh-media-workbench-install --strip-co
 
 此机器也可直接使用已经准备好的源码目录：`/Users/cinder/Desktop/Coding/DSHCoding/dsh-media-workbench`。
 
-**兼容性（2026-09-11）：** 工作台内嵌原生会话需要宿主提供会话承载接口。对于实测的 Desktop 0.8.1，本仓库提供显式的 [Profile 适配步骤](docs/conversation-host-bridge.md)，需退出 Desktop 后执行。单独安装插件包不会自动修改宿主。原版宿主缺少接口时，会明确显示依赖缺失，不再自动跳去普通对话。
-
-已在隔离的 0.8.1 Harness 实测：A/B 会话创建及切换、独立未发送草稿、业务输入与 iframe 保留、仅一个原生输入框、窗口收起恢复、刷新恢复最近会话。普通浏览器预览不含真实 DSH 会话。适配器限定已验证构建；Desktop 升级前需恢复适配，升级后重新核验。
+**兼容性（v0.12.0）：** 由 Desktop 的工作台市场统一固定、打开和关闭入口。宿主提供唯一原生会话节点，本插件将它放入原有可拖动的会话窗口。当前仅验证本地开发宿主，旧版独立插件的 Profile 补丁不适用于本版。
 
 修复页查询 npm 返回 404 表示本插件未在 npm 发布，请从 GitHub 或本地源码更新。
 

@@ -14,7 +14,7 @@ export async function apply(ctx, config = {}) {
   const mounted = new Map()
   const runtime = createRuntime(root, { trustedTransport: true, onMutation(state) { boundIds = new Set(state.bindings.filter(b => !b.archivedAt).map(b => b.sessionId)); for (const [id, disposers] of mounted) { if (!boundIds.has(id)) { for (const dispose of disposers) dispose(); mounted.delete(id) } } for (const agent of ctx.agents.list()) attach(agent) } })
   await runtime.start()
-  for (const path of ROUTES) ctx.connection.fetch.register({ path, methods: (/\.(js|css)$/.test(path) || path.endsWith('/app')) ? ['GET'] : ['GET', 'POST'], fetch: request => runtime.handle(request) })
+  for (const path of ROUTES) ctx.connection.fetch.register({ path, requestBody: 'buffered', methods: (/\.(js|css)$/.test(path) || path.endsWith('/app')) ? ['GET'] : ['GET', 'POST'], fetch: request => runtime.handle(request) })
   ctx.effect(() => { const timer = setInterval(() => runtime.tick().catch(error => ctx.logger?.warn?.(error.message)), 60000); timer.unref?.(); return () => { clearInterval(timer); return runtime.dispose() } })
   const output = { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }
   const readTool = defineTool({

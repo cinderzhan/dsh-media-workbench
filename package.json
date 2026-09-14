@@ -1,6 +1,6 @@
 {
   "name": "dsh-media-workbench",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "type": "module",
   "description": "DSH Desktop 内容运营工作台",
   "main": "./packages/dsh-media-workbench/index.mjs",
@@ -14,7 +14,8 @@
     "README.md",
     "docs",
     "patches",
-    "scripts"
+    "scripts",
+    "workbench.json"
   ],
   "dsh": {
     "bundle": {
@@ -23,12 +24,9 @@
     "client": {
       "platform": "web",
       "inject": [
-        "@deepseek-ai/dsh-client-ui-slots",
-        "@deepseek-ai/dsh-client-ui-sidebar",
-        "@deepseek-ai/dsh-client-ui-layout",
+        "dsh-desktop-workbenches",
         "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-api-session-controller",
-        "@deepseek-ai/dsh-api-workspace-controller"
+        "@deepseek-ai/dsh-api-session-controller"
       ]
     }
   },

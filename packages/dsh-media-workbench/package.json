@@ -52,6 +52,7 @@
     "client": {
       "platform": "web",
       "inject": [
+        "dsh-desktop-workbenches",
         "@deepseek-ai/dsh-client-ui-slots",
         "@deepseek-ai/dsh-client-ui-sidebar",
         "@deepseek-ai/dsh-client-ui-layout",

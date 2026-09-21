@@ -97,6 +97,9 @@ test('legacy hosts boot without market dependency and release fallback when mark
  registeredService=services;marketCallback({effect:ctx.effect,sessions:ctx.sessions,desktopWorkbenches:services});await tick()
  assert.equal(disposed,true);assert.equal(registered,true)
  const manifest=JSON.parse(readFileSync(new URL('../packages/dsh-media-workbench/package.json',import.meta.url),'utf8'))
- assert.ok(!manifest.dsh.client.inject.includes('dsh-desktop-workbenches'))
+ // The client module loader skips injected packages a host does not have, so
+ // naming the workbench service only orders it first where it exists; legacy
+ // hosts without it still boot (asserted above).
+ assert.ok(manifest.dsh.client.inject.includes('dsh-desktop-workbenches'))
  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-api-workspace-controller'))
 })

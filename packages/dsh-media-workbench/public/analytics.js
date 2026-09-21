@@ -1,4 +1,5 @@
 import { installChartInteraction, exactChartTime } from './chart-interaction.js'
+import { installResponsiveChart } from './responsive-chart.js'
 const PLATFORM = { bilibili: 'B站', douyin: '抖音', xiaohongshu: '小红书', weixin_channels: '视频号', weixin_article: '微信公众号' }
 const METRIC = { views: '观看', reads: '文章阅读', likes: '点赞', comments: '评论', favorites: '收藏', shares: '转发', followers: '涨粉', coins: '投币', danmaku: '弹幕' }
 const CHECKPOINT = { '24h': '24 小时', '72h': '72 小时', current: '至今' }
@@ -193,9 +194,6 @@ function modelChart(model, prefix) {
   const x = key => isTime ? minTime === maxTime ? left + plotWidth / 2 : left + (key - minTime) / (maxTime - minTime) * plotWidth : left + ((categoryIndex.get(key) ?? 0) + 0.5) / Math.max(1, categories.length) * plotWidth
   const title = `${VIEW[model.view]}，${chartType === 'line' ? '折线图' : '柱状图'}。横轴：${AXIS[xAxis]}；纵轴：${model.metrics.map(key => METRIC[key]).join('、')}（原始数量）。缺失值不按零计算。`
   const svg = chartSvg(title, width, height, `${prefix}-chart-title`)
-  // Reserve 16px below the drawing for a horizontal scrollbar.
-  svg.style.minWidth = `${Math.round(width * 224 / height)}px`
-  svg.setAttribute('preserveAspectRatio', 'none')
   for (const fraction of [0, 0.25, 0.5, 0.75, 1]) {
     const value = (minimum + (maximum - minimum) * fraction) * magnitude
     const axisValue=Math.abs(value)>=1e8?`${format(Math.round(value/1e7)/10)}亿`:Math.abs(value)>=1e4?`${format(Math.round(value/1e3)/10)}万`:format(Math.round(value*10)/10)
@@ -256,6 +254,7 @@ function modelChart(model, prefix) {
   })
   installChartInteraction(svg, entries)
   const wrap = node('div', undefined, 'analytics-series-chart'); wrap.append(svg)
+  installResponsiveChart(svg, wrap, { minWidth: Math.min(width, 560), maxWidth: Math.max(760, width) })
   if (!values.length) wrap.append(node('p', '所选指标暂无可绘制数据，可在原始明细中查看采集记录。', 'analytics-empty'))
   return wrap
 }

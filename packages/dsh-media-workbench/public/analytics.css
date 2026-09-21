@@ -26,3 +26,6 @@
 .analytics .analytics-chart-card>.analytics-empty{flex:1;display:grid;place-content:center}
 .analytics .analytics-editor[open]{flex:none}
 .analytics .analytics-legend i{flex:none}
+
+/* SVGs retain their viewBox ratio; only this wrapper may scroll horizontally. */
+.analytics .analytics-series-chart{height:auto;min-height:224px;max-height:336px;overflow-x:auto;overflow-y:hidden}.analytics .analytics-series-chart .analytics-svg{display:block;max-width:none;max-height:none}

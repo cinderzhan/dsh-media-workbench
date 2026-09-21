@@ -1,4 +1,5 @@
 import { installChartInteraction, exactChartTime } from './chart-interaction.js'
+import { installResponsiveChart } from './responsive-chart.js'
 export const dailyMetrics = [
   {key:'downloads',label:'下载量',color:'#4263EB'},
   {key:'stars',label:'新增 GitHub Star',color:'#B86D16'},
@@ -82,9 +83,9 @@ export function renderDailyChart(container,records,namespace='default',context={
    entries.push({mark,title:'发布标注',metric:'发布日期',value:annotation.date,color:'#808a99',details:annotation.items.map(({publication,topic})=>`${topic.title||'未命名选题'} · ${publicationPlatforms[publication.platform]||publication.platform||'未知平台'} · ${/^\d{4}-\d{2}-\d{2}$/.test(publication.publishedAt)?publication.publishedAt:exactChartTime(publication.publishedAt)}`)})
   }
   svg.insertBefore(annotations,svg.firstChild)
-  svg.setAttribute('preserveAspectRatio', 'none')
   installChartInteraction(svg, entries)
   target.append(svg)
+  installResponsiveChart(svg, target, { minWidth: 560, maxWidth: 760 })
  }
  function render(editId){
   grid.replaceChildren()

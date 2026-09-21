@@ -1,7 +1,7 @@
 const labels = { library: '资料', calendar: '营销日历', data: '数据', chat: 'DSH 会话' }
 const groups = { library: [['topics','选题池'],['creators','达人池'],['campaigns','Campaign']], calendar: [['calendar','营销日历']], data: [['publications','数据采集'],['analytics','数据监控'],['daily','北极星指标']], chat: [] }
-const defaults = () => ({ order: ['library','calendar','data','chat'], x: 69, y: 54, inner: 42, tabs: { library:'topics', data:'analytics', calendar:'calendar' }, minimized: {} })
-export function windowLayout(order,minimized={},ratios={x:69,y:54,inner:42},maximized=null) {
+const defaults = () => ({ order: ['library','calendar','data','chat'], x: 69, y: 48, inner: 42, tabs: { library:'topics', data:'analytics', calendar:'calendar' }, minimized: {} })
+export function windowLayout(order,minimized={},ratios={x:69,y:48,inner:42},maximized=null) {
   if(order.includes(maximized))return {rects:{[maximized]:[0,0,100,100]},x:100,y:100,inner:100,dividers:{x:false,y:false,inner:false}}
   const [a,b,c,d]=order,shown=key=>!minimized[key]
   const top=shown(a)||shown(b),left=top||shown(c)
@@ -22,9 +22,10 @@ export function createDock(root, { hosted = false, onFrame = () => {}, onChat = 
   for(const key of ['library','calendar','data'])if(!groups[key].some(([id])=>id===layout.tabs[key]))layout.tabs[key]=defaults().tabs[key]
   for (const [key,min,max] of [['x',40,80],['y',28,75],['inner',28,70]]) layout[key] = Math.max(min,Math.min(max,Number(layout[key])||defaults()[key]))
   const element = (tag,cls,text) => { const n=document.createElement(tag);n.className=cls||'';if(text)n.textContent=text;return n }
-  const shell=element('div','media-dock'), top=element('div','dock-toolbar'), title=element('strong','','内容运营'), hint=element('span','dock-hint',''), reset=element('button','','重置布局')
+  const shell=element('div','media-dock'), top=element('div','dock-toolbar'), hint=element('span','dock-hint',''), reset=element('button','','重置布局')
+  top.setAttribute('aria-label','工作台布局控制')
   reset.type='button';reset.onclick=()=>{maximized=null;layout=defaults();apply();save();for(const key of Object.keys(frames))setTab(key,layout.tabs[key])}
-  top.append(title,hint,reset)
+  top.append(hint,reset)
   if(hosted){const close=element('button','','退出工作台');close.onclick=onClose;top.append(close)}
   const board=element('div','dock-board'); shell.append(top,board);root.replaceChildren(shell)
   const panes={}, frames={}, restoreButtons={}

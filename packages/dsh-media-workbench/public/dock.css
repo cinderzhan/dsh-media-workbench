@@ -5,3 +5,6 @@
 
 /* Maximize stays inside the workbench so host navigation and conversation survive. */
 .dock-maximize{display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#777670!important}.dock-maximize:hover,.dock-maximize[aria-pressed=true]{color:#222!important;background:#f1f1ef}.dock-board.maximized .dock-drag,.dock-board.maximized .dock-move{visibility:hidden}.dock-pane-heading{user-select:none}
+
+/* Compact shell: pane frames never become a second vertical scroll owner. */
+.media-dock{min-width:760px}.dock-toolbar{height:30px;gap:8px;padding:0 10px;background:#fafaf9}.dock-toolbar button{font-size:10px;padding:3px 6px}.dock-board{margin:6px;--split-y:48%}.dock-pane-body{overflow:hidden}.media-dock button{transition:background-color .16s ease,color .16s ease}.media-dock button:active{transform:translateY(1px)}

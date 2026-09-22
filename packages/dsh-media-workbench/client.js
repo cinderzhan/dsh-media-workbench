@@ -27,10 +27,14 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     const frames = new Set()
     let bindings = new Map()
     let lastCurrent
-    const workbenchId = 'wb-cinderzhan-dsh-media-workbench'
+    // Desktop now derives the market id from the repository URL (owner/repo)
+    // instead of a plugin-declared id, and only Panel's render props carry
+    // that resolved value. Track the latest one here so isActive()/owns()
+    // work from any closure in this module, not just inside Panel's render.
+    let selfId = null
     const service = ctx.desktopWorkbenches
-    const isActive = () => service.getSnapshot().state.active === workbenchId && service.getSnapshot().state.added.includes(workbenchId)
-    const owns = id => service.getSnapshot().state.sessionBindings[id] === workbenchId
+    const isActive = () => selfId !== null && service.getSnapshot().state.active === selfId && service.getSnapshot().state.added.includes(selfId)
+    const owns = id => selfId !== null && service.getSnapshot().state.sessionBindings[id] === selfId
     const change = patch => { current = { ...current, ...patch }; listeners.forEach(fn => fn()) }
     const subscribe = fn => { listeners.add(fn); return () => listeners.delete(fn) }
     const request = async (path, data) => {
@@ -58,7 +62,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
         const title = entity?.title || entity?.name || '内容运营工作台'
         if (!sessionId) {
           if (!isActive()) throw new Error('工作台已切换，请返回后重试。')
-          sessionId = await service.ensureSession({ workbenchId, folder: state.projectRoot })
+          sessionId = await service.ensureSession({ folder: state.projectRoot })
           const next = await request('mutate', { action: 'bindSession', data: { sessionId, scope, ...(entityId ? { entityId } : {}), title } })
           binding = next.bindings.find(b => b.sessionId === sessionId)
           const scoped = ctx.sessions.scope(sessionId)
@@ -73,7 +77,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
           const known = ctx.sessions.list.getSnapshot().byId
           if (!known?.[sessionId]) throw new Error('此会话已删除或不可用，请新建会话。业务数据仍保留。')
           if (!isActive()) throw new Error('工作台已切换，请返回后重试。')
-          await service.ensureSession({ workbenchId, folder: state.projectRoot, sessionId })
+          await service.ensureSession({ folder: state.projectRoot, sessionId })
           await request('mutate', { action: 'bindSession', data: { sessionId, scope, ...(entityId ? { entityId } : {}), title, lastUsedAt: new Date().toISOString() } })
         }
         // Desktop ensures ownership and opens only if navigation is still current.
@@ -97,7 +101,11 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
       if (binding) request('mutate', { action: 'bindSession', data: { sessionId: binding.sessionId, scope: binding.scope, ...(binding.entityId ? { entityId: binding.entityId } : {}), title: binding.title, lastUsedAt: new Date().toISOString() } }).catch(error => change({ error: error.message }))
     }))
     request('state').then(() => { const id = currentSession(ctx); change({ binding: owns(id) ? bindings.get(id) || null : null }) }).catch(error => change({ error: error.message }))
-    function Panel({ conversation }) {
+    function Panel({ conversation, entry }) {
+      // Desktop resolves the market id (owner/repo) from the repository URL
+      // and only hands it back through this render prop; capture it so the
+      // isActive()/owns() closures above can compare against the real id.
+      if (entry?.id) selfId = entry.id
       const state = React.useSyncExternalStore(subscribe, () => current)
       const [chat, setChat] = React.useState(null)
       const dockRef = React.useRef(null)
@@ -125,7 +133,12 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
         ),chat)
       )
     }
-    ctx.effect(() => service.register({ id: workbenchId, version: '0.12.4', author: 'cinderzhan', title: '内容运营工作台', icon: '▦', description: '管理选题、达人、Campaign、营销日历和数据，保留四窗口布局与原生会话。', audience: '内容与自媒体运营', requirements: '业务资料可独立使用；会话使用 Desktop 模型配置。', initialization: 'empty', customFrame: true }, Panel))
+    // register() rejects any descriptor that carries an `id`: Desktop now
+    // derives the market id itself from the repository URL / install record
+    // (see dsh-desktop-workbenches development-guide.zh.md §3.5). Passing
+    // `id: workbenchId` here made every registration throw, which crashed
+    // the whole workbench frame slot (and, with it, the conversation area).
+    ctx.effect(() => service.register({ repository: 'https://github.com/cinderzhan/dsh-media-workbench', version: '0.12.4', author: 'cinderzhan', title: '内容运营工作台', icon: '▦', description: '管理选题、达人、Campaign、营销日历和数据，保留四窗口布局与原生会话。', audience: '内容与自媒体运营', requirements: '业务资料可独立使用；会话使用 Desktop 模型配置。', initialization: 'empty', customFrame: true }, Panel))
   }
   function applyLegacy(ctx) {
     let current = { open: false, binding: null, error: '', busy: false }

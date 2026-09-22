@@ -5,7 +5,7 @@ import vm from 'node:vm'
 
 const source = readFileSync(new URL('../packages/dsh-media-workbench/client.js', import.meta.url), 'utf8')
 const tick = () => new Promise(resolve => setImmediate(resolve))
-async function fixture({ draft = '', occurrences = [], bindings = [] } = {}) {
+async function fixture({ draft = '', occurrences = [], bindings = [], harness = '0.1.5' } = {}) {
   let module, Panel, descriptor, message
   let active = 'media-workbench', current = null, owner = {}, nextId = 0
   const ensured = [], writes = [], drafts = [], opened = []
@@ -19,18 +19,23 @@ async function fixture({ draft = '', occurrences = [], bindings = [] } = {}) {
     if(args.sessionId && owner[args.sessionId] && owner[args.sessionId]!=='media-workbench')throw Error('wrong owner')
     const id=args.sessionId||`new-${++nextId}`;owner[id]='media-workbench';current=id;opened.push(id);return id
   }}
+  // Harness 0.1.6 drops list.current/sessions.open; Desktop exposes currentSession/showSession
+  // ('desktop') or only the mainView retention on byId ('retention').
+  if (harness === 'desktop') { service.currentSession = () => current; service.showSession = id => { current = id } }
+  const summary = id => harness === 'retention' ? { retainedBy: id === current ? { mainView: 1 } : {} } : {}
+  const snapshot = () => ({ ...(harness === '0.1.5' ? { current } : {}), byId: Object.fromEntries(business.bindings.map(b => [b.sessionId, summary(b.sessionId)])) })
   vm.runInNewContext(source.replace("import('/api/media-workbench/dock.js')",'Promise.resolve({createDock: fakeDock})'), {
     window:{__ModuleLoader__:{load:r=>{module=r.factory(name=>name==='react'?React:{createPortal:child=>child})}},addEventListener:(_name,fn)=>{message=fn},removeEventListener:()=>{}},
     document:{createElement:()=>({remove(){}}),head:{append(){}}},location:{origin:'http://localhost'},
     fakeDock:(_node,options)=>{options.onFrame(frame);return {frames:[frame],destroy(){}}},
     fetch:async (_path,options)=>{if(options?.body){const body=JSON.parse(options.body);writes.push(body);business.bindings=business.bindings.filter(b=>b.sessionId!==body.data.sessionId);business.bindings.push({...body.data,lastUsedAt:'2026-09-14'})}return {ok:true,json:async()=>business}}
   })
-  const ctxForMarket={get:()=>service,inject:(_deps,fn)=>fn({desktopWorkbenches:service,effect:fn=>fn(),sessions:ctxForMarket.sessions}),desktopWorkbenches:service,effect:fn=>fn(),sessions:{refresh:async()=>{},list:{subscribe:()=>()=>{},getSnapshot:()=>({current,byId:Object.fromEntries(business.bindings.map(b=>[b.sessionId,{}]))})},scope:()=>({get:()=>({input:{for:()=>({state:{getSnapshot:()=>({draft,occurrences})},setDraft:value=>{drafts.push(value);draft=value}})}})})}}
+  const ctxForMarket={get:()=>service,inject:(_deps,fn)=>fn({desktopWorkbenches:service,effect:fn=>fn(),sessions:ctxForMarket.sessions}),desktopWorkbenches:service,effect:fn=>fn(),sessions:{refresh:async()=>{},list:{subscribe:()=>()=>{},getSnapshot:snapshot},scope:()=>({get:()=>({input:{for:()=>({state:{getSnapshot:()=>({draft,occurrences})},setDraft:value=>{drafts.push(value);draft=value}})}})})}}
   module.apply(ctxForMarket)
   await tick()
   function flatten(node){return !node||typeof node!=='object'?[]:[node,...(node.children||[]).flatMap(flatten)]}
   const tree=Panel({conversation:h('native-conversation')});await tick()
-  return {descriptor,tree,flatten,ensured,writes,drafts,replies,opened,Panel,frame,setOwner:(id,value)=>{owner[id]=value},setActive:value=>{active=value},send:async intent=>{await message({origin:'http://localhost',source:frame.contentWindow,data:{type:'media-workbench:session',...intent}});await tick()}}
+  return {descriptor,tree,flatten,render:()=>Panel({conversation:h('native-conversation')}),ensured,writes,drafts,replies,opened,Panel,frame,setOwner:(id,value)=>{owner[id]=value},setActive:value=>{active=value},send:async intent=>{await message({origin:'http://localhost',source:frame.contentWindow,data:{type:'media-workbench:session',...intent}});await tick()}}
 }
 
 test('registers a custom market frame, immediately shows business dock, mounts one supplied conversation', async()=>{
@@ -102,4 +107,36 @@ test('legacy hosts boot without market dependency and release fallback when mark
  // hosts without it still boot (asserted above).
  assert.ok(manifest.dsh.client.inject.includes('dsh-desktop-workbenches'))
  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-api-workspace-controller'))
+})
+
+test('Harness 0.1.6: current session comes from Desktop service or mainView retention, never list.current', async()=>{
+ const binding={sessionId:'saved',scope:'topic',entityId:'t1',title:'选题一',lastUsedAt:'2026-09-14'}
+ for(const harness of ['desktop','retention','0.1.5']){
+  const f=await fixture({bindings:[binding],harness});await f.send({scope:'topic',entityId:'t1',sessionId:'saved'})
+  assert.equal(f.replies[0].error,undefined,harness)
+  const select=f.flatten(f.render()).find(n=>n.type==='select')
+  assert.equal(select.props.value,'saved',`${harness} must resolve the shown session`)
+ }
+})
+
+async function legacyFixture(host){
+ let module
+ const binding={sessionId:'saved',scope:'workbench',title:'内容运营工作台',lastUsedAt:'2026-09-14'}
+ vm.runInNewContext(source,{
+  window:{__ModuleLoader__:{load:r=>{module=r.factory(name=>name==='react'?{createElement:()=>{}}:{})}},addEventListener(){},removeEventListener(){}},
+  localStorage:{getItem:()=>'1',setItem(){}},fetch:async()=>({ok:true,json:async()=>({bindings:[binding]})})
+ })
+ const ctx={get:()=>undefined,effect:fn=>fn(),sessions:{refresh:async()=>{},list:{subscribe:()=>()=>{},getSnapshot:()=>({byId:{saved:{}}})},...host.sessions},
+  slots:{inject(){},register(){}},workspaces:{},inject:(deps,fn)=>{if(!deps.includes('desktopWorkbenches'))fn(ctx)},plugin:plugin=>{plugin.apply(ctx);return {dispose(){}}}}
+ Object.defineProperty(ctx,'desktopWorkbenches',{get(){throw Error('cannot get property desktopWorkbenches without inject')}})
+ if(host.uiWorkspace)ctx.uiWorkspace=host.uiWorkspace
+ else Object.defineProperty(ctx,'uiWorkspace',{get(){throw Error('cannot get property uiWorkspace without inject')}})
+ module.apply(ctx);await tick();await tick();await tick()
+}
+
+test('legacy restore opens sessions via uiWorkspace on Harness 0.1.6 and sessions.open on 0.1.5', async()=>{
+ const viaUi=[];await legacyFixture({uiWorkspace:{openSession:(id,source)=>viaUi.push([id,source])}})
+ assert.deepEqual(viaUi,[['saved','workbench']])
+ const viaSessions=[];await legacyFixture({sessions:{open:id=>viaSessions.push(id)}})
+ assert.deepEqual(viaSessions,['saved'])
 })

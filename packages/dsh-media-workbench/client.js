@@ -2,6 +2,25 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
   const React = require('react')
   const h = React.createElement
   const { createPortal } = require('react-dom')
+  // Harness 0.1.6 removed sessions.open/clear and list.current. Prefer the
+  // Desktop workbench service, then uiWorkspace, then the 0.1.5 session APIs.
+  // Cordis throws when reading an uninjected service, so probe defensively.
+  const peek = (ctx, name) => { try { return ctx[name] } catch { return undefined } }
+  function currentSession(ctx) {
+    const service = peek(ctx, 'desktopWorkbenches')
+    if (typeof service?.currentSession === 'function') return service.currentSession()
+    const snapshot = ctx.sessions.list.getSnapshot() || {}
+    const byId = snapshot.byId || {}
+    return Object.keys(byId).find(id => (byId[id]?.retainedBy?.mainView ?? 0) > 0) ?? snapshot.current
+  }
+  function showSession(ctx, sessionId) {
+    const service = peek(ctx, 'desktopWorkbenches')
+    if (typeof service?.showSession === 'function') return service.showSession(sessionId)
+    const ui = peek(ctx, 'uiWorkspace')
+    if (typeof ui?.openSession === 'function') return ui.openSession(sessionId, 'workbench')
+    if (typeof ctx.sessions.open === 'function') return ctx.sessions.open(sessionId)
+    throw new Error('当前 Desktop 不支持打开会话，请升级 Desktop。')
+  }
   function applyMarket(ctx) {
     let current = { binding: null, error: '', busy: false }
     const listeners = new Set()
@@ -58,7 +77,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
           await request('mutate', { action: 'bindSession', data: { sessionId, scope, ...(entityId ? { entityId } : {}), title, lastUsedAt: new Date().toISOString() } })
         }
         // Desktop ensures ownership and opens only if navigation is still current.
-        const selected = ctx.sessions.list.getSnapshot().current
+        const selected = currentSession(ctx)
         change({ binding: owns(selected) ? bindings.get(selected) || null : null })
         return { sessionId, scope, entityId }
       } finally { change({ busy: false }) }
@@ -70,14 +89,14 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     }
     ctx.effect(() => { window.addEventListener('message', message); return () => window.removeEventListener('message', message) })
     ctx.effect(() => ctx.sessions.list.subscribe(() => {
-      const id = ctx.sessions.list.getSnapshot().current
+      const id = currentSession(ctx)
       if (id === lastCurrent) return
       lastCurrent = id
       const binding = owns(id) ? bindings.get(id) || null : null
       change({ binding })
       if (binding) request('mutate', { action: 'bindSession', data: { sessionId: binding.sessionId, scope: binding.scope, ...(binding.entityId ? { entityId: binding.entityId } : {}), title: binding.title, lastUsedAt: new Date().toISOString() } }).catch(error => change({ error: error.message }))
     }))
-    request('state').then(() => change({ binding: owns(ctx.sessions.list.getSnapshot().current) ? bindings.get(ctx.sessions.list.getSnapshot().current) || null : null })).catch(error => change({ error: error.message }))
+    request('state').then(() => { const id = currentSession(ctx); change({ binding: owns(id) ? bindings.get(id) || null : null }) }).catch(error => change({ error: error.message }))
     function Panel({ conversation }) {
       const state = React.useSyncExternalStore(subscribe, () => current)
       const [chat, setChat] = React.useState(null)
@@ -158,7 +177,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
           if (!known?.[sessionId]) throw new Error('此会话已删除或不可用，请新建会话。业务数据仍保留。')
           await request('mutate', { action: 'bindSession', data: { sessionId, scope, ...(entityId ? { entityId } : {}), title, lastUsedAt: new Date().toISOString() } })
         }
-        ctx.sessions.open(sessionId)
+        showSession(ctx, sessionId)
         change({ binding, open: true })
         return { sessionId, scope, entityId }
       } finally { change({ busy: false }) }
@@ -170,8 +189,8 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
         await ctx.sessions.refresh()
         const known = ctx.sessions.list.getSnapshot().byId || {}
         const recent = state.bindings.filter(b => !b.archivedAt && known[b.sessionId]).sort((a, b) => b.lastUsedAt.localeCompare(a.lastUsedAt))[0]
-        if (restoreConversation && recent) { ctx.sessions.open(recent.sessionId); change({ binding: recent, open: true }) }
-        else change({ open: true, binding: bindings.get(ctx.sessions.list.getSnapshot().current) || null })
+        if (restoreConversation && recent) { showSession(ctx, recent.sessionId); change({ binding: recent, open: true }) }
+        else change({ open: true, binding: bindings.get(currentSession(ctx)) || null })
       } catch (error) { change({ error: error.message, open: true }) }
     }
     const message = async event => {
@@ -181,7 +200,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     }
     ctx.effect(() => { window.addEventListener('message', message); return () => window.removeEventListener('message', message) })
     ctx.effect(() => ctx.sessions.list.subscribe(() => {
-      const id = ctx.sessions.list.getSnapshot().current
+      const id = currentSession(ctx)
       if (id === lastCurrent) return
       lastCurrent = id
       const binding = bindings.get(id) || null
@@ -190,7 +209,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     }))
     request('state').then(async () => {
       if (localStorage.getItem('media-workbench-open') === '1') { await openWorkbench(true); return }
-      const id = ctx.sessions.list.getSnapshot().current
+      const id = currentSession(ctx)
       lastCurrent = id
       change({ binding: bindings.get(id) || null })
     }).catch(error => change({ error: error.message }))
@@ -252,7 +271,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
               h('option',{value:'',disabled:true},'选择工作台会话'),
               [...bindings.values()].sort((a,b)=>b.lastUsedAt.localeCompare(a.lastUsedAt)).map(b=>h('option',{key:b.sessionId,value:b.sessionId},`${b.title} · ${b.sessionId.slice(-6)}`))),
             h('button',{type:'button',onClick:()=>bind({intent:'new',scope:state.binding?.scope||'workbench',entityId:state.binding?.entityId}).catch(error=>change({error:error.message})),disabled:state.busy||!canEmbedConversation},'新建会话')),
-          h('div',{'data-media-native-conversation':true,style:{position:'relative',flex:1,minHeight:0,minWidth:0,display:'flex',flexDirection:'column'}},!canEmbedConversation ? h('div',{role:'status',style:{padding:16,fontSize:12,lineHeight:1.8}},h('p',null,'当前 Desktop 尚未提供工作台内会话接口。业务面板可用，会话接入待适配。'),state.binding&&h('button',{type:'button',onClick:()=>{ctx.sessions.open(state.binding.sessionId);change({open:false})}},'退出工作台并打开普通对话')) : !state.binding ? h('p',{style:{padding:20,fontSize:12,lineHeight:1.8,color:'#666'}},'新建工作台会话，或从选题、Campaign 中选择关联会话。') : conversationHost==='dsh-media-workbench' ? renderConversation() : h('p',{role:'status',style:{padding:16}},'会话区暂被其他工作台占用，请先退出该工作台。'))
+          h('div',{'data-media-native-conversation':true,style:{position:'relative',flex:1,minHeight:0,minWidth:0,display:'flex',flexDirection:'column'}},!canEmbedConversation ? h('div',{role:'status',style:{padding:16,fontSize:12,lineHeight:1.8}},h('p',null,'当前 Desktop 尚未提供工作台内会话接口。业务面板可用，会话接入待适配。'),state.binding&&h('button',{type:'button',onClick:()=>{showSession(ctx, state.binding.sessionId);change({open:false})}},'退出工作台并打开普通对话')) : !state.binding ? h('p',{style:{padding:20,fontSize:12,lineHeight:1.8,color:'#666'}},'新建工作台会话，或从选题、Campaign 中选择关联会话。') : conversationHost==='dsh-media-workbench' ? renderConversation() : h('p',{role:'status',style:{padding:16}},'会话区暂被其他工作台占用，请先退出该工作台。'))
         ),chat),
         !state.open && state.binding && h('button',{type:'button',onClick:()=>openWorkbench(false),style:{position:'absolute',top:48,right:20,border:'1px solid #e3e3e0',background:'#f7f7f5',color:'#37352f',borderRadius:6,padding:'7px 12px',cursor:'pointer',fontSize:12}},`内容运营 · ${state.binding.title} · 返回工作台`)
       )

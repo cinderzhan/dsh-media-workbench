@@ -10,7 +10,7 @@ const fields = {
   publications: ['source', 'topicId', 'creatorId', 'campaignId', 'platform', 'url', 'publishedAt', 'scheduledAt', 'title', 'cost', 'format'],
   snapshots: ['publicationId', 'checkpoint', 'capturedAt', 'targetAt', 'source', 'metrics'],
   daily: ['date', 'downloads', 'stars', 'groupJoins', 'leads', 'notes'],
-  bindings: ['sessionId', 'workbenchId', 'scope', 'entityId', 'title', 'lastUsedAt']
+  bindings: ['sessionId', 'scope', 'entityId', 'title', 'lastUsedAt']
 }
 const metadata = ['id', 'createdAt', 'updatedAt', 'archivedAt']
 /** Errors are safe to report at the API boundary. */
@@ -95,7 +95,7 @@ function validateRecord(state, entity, row) {
   if (entity === 'daily') date(row.date, 'date', true, true)
   if (entity === 'bindings') {
     required(row.sessionId, 'sessionId'); required(row.title, 'title')
-    oneOf(row.workbenchId, ['dsh-media-workbench'], 'workbenchId'); oneOf(row.scope, ['workbench', 'topic', 'campaign'], 'scope')
+    oneOf(row.scope, ['workbench', 'topic', 'campaign'], 'scope')
     if (row.scope !== 'workbench') { required(row.entityId, 'entityId'); reference(state, row.scope === 'topic' ? 'topics' : 'campaigns', row.entityId, 'entityId') }
     else if (present(row.entityId)) fail('Workbench binding cannot have entityId')
   }
@@ -138,9 +138,9 @@ export function applyMutation(state, command) {
     existing ||= natural
     if (existing && entity === 'snapshots') fail('Snapshots are append-only')
     if (existing && entity === 'bindings') {
-      for (const key of ['sessionId', 'workbenchId', 'scope', 'entityId']) if (key in data && (data[key] ?? '') !== (existing[key] ?? '')) fail('Session binding cannot move to another scope')
+      for (const key of ['sessionId', 'scope', 'entityId']) if (key in data && (data[key] ?? '') !== (existing[key] ?? '')) fail('Session binding cannot move to another scope')
     }
-    const defaults = entity === 'topics' ? { status: 'unselected' } : entity === 'bindings' ? { workbenchId: 'dsh-media-workbench', scope: 'workbench', lastUsedAt: now } : {}
+    const defaults = entity === 'topics' ? { status: 'unselected' } : entity === 'bindings' ? { scope: 'workbench', lastUsedAt: now } : {}
     const row = { ...defaults, ...existing, ...structuredClone(data), id: existing?.id || id || randomUUID(), createdAt: existing?.createdAt || now, updatedAt: now }
     if (entity === 'topics') {
       if (present(data.scheduledAt) && (!existing?.scheduledAt || Date.parse(data.scheduledAt) !== Date.parse(existing.scheduledAt))) row.status = 'scheduled'

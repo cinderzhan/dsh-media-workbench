@@ -27,10 +27,9 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     const frames = new Set()
     let bindings = new Map()
     let lastCurrent
-    const workbenchId = 'wb-cinderzhan-dsh-media-workbench'
     const service = ctx.desktopWorkbenches
-    const isActive = () => service.getSnapshot().state.active === workbenchId && service.getSnapshot().state.added.includes(workbenchId)
-    const owns = id => service.getSnapshot().state.sessionBindings[id] === workbenchId
+    const isActive = () => service.isActive()
+    const owns = id => service.ownsSession(id)
     const change = patch => { current = { ...current, ...patch }; listeners.forEach(fn => fn()) }
     const subscribe = fn => { listeners.add(fn); return () => listeners.delete(fn) }
     const request = async (path, data) => {
@@ -58,7 +57,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
         const title = entity?.title || entity?.name || '内容运营工作台'
         if (!sessionId) {
           if (!isActive()) throw new Error('工作台已切换，请返回后重试。')
-          sessionId = await service.ensureSession({ workbenchId, folder: state.projectRoot })
+          sessionId = await service.ensureSession({ folder: state.projectRoot })
           const next = await request('mutate', { action: 'bindSession', data: { sessionId, scope, ...(entityId ? { entityId } : {}), title } })
           binding = next.bindings.find(b => b.sessionId === sessionId)
           const scoped = ctx.sessions.scope(sessionId)
@@ -73,7 +72,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
           const known = ctx.sessions.list.getSnapshot().byId
           if (!known?.[sessionId]) throw new Error('此会话已删除或不可用，请新建会话。业务数据仍保留。')
           if (!isActive()) throw new Error('工作台已切换，请返回后重试。')
-          await service.ensureSession({ workbenchId, folder: state.projectRoot, sessionId })
+          await service.ensureSession({ folder: state.projectRoot, sessionId })
           await request('mutate', { action: 'bindSession', data: { sessionId, scope, ...(entityId ? { entityId } : {}), title, lastUsedAt: new Date().toISOString() } })
         }
         // Desktop ensures ownership and opens only if navigation is still current.
@@ -125,7 +124,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
         ),chat)
       )
     }
-    ctx.effect(() => service.register({ id: workbenchId, version: '0.12.4', author: 'cinderzhan', title: '内容运营工作台', icon: '▦', description: '管理选题、达人、Campaign、营销日历和数据，保留四窗口布局与原生会话。', audience: '内容与自媒体运营', requirements: '业务资料可独立使用；会话使用 Desktop 模型配置。', initialization: 'empty', customFrame: true }, Panel))
+    ctx.effect(() => service.register({ version: '0.12.4', author: 'cinderzhan', title: '内容运营工作台', icon: '▦', description: '管理选题、达人、Campaign、营销日历和数据，保留四窗口布局与原生会话。', audience: '内容与自媒体运营', requirements: '业务资料可独立使用；会话使用 Desktop 模型配置。', initialization: 'empty', customFrame: true }, Panel))
   }
   function applyLegacy(ctx) {
     let current = { open: false, binding: null, error: '', busy: false }

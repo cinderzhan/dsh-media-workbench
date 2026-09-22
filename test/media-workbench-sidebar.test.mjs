@@ -7,17 +7,18 @@ const source = readFileSync(new URL('../packages/dsh-media-workbench/client.js',
 const tick = () => new Promise(resolve => setImmediate(resolve))
 async function fixture({ draft = '', occurrences = [], bindings = [], harness = '0.1.5' } = {}) {
   let module, Panel, descriptor, message
-  let active = 'wb-cinderzhan-dsh-media-workbench', current = null, owner = {}, nextId = 0
+  const workbench = 'cinderzhan/dsh-media-workbench'
+  let active = workbench, current = null, owner = {}, nextId = 0
   const ensured = [], writes = [], drafts = [], opened = []
   const business = {projectRoot:'/media-project',topics:[{id:'t1',title:'选题一'}],campaigns:[{id:'c1',name:'Campaign 一'}],bindings}
   const frame = {contentWindow:{postMessage: value => replies.push(value)}}
   const replies = []
   const h = (type,props,...children) => ({type,props:props||{},children:children.flat()})
   const React = { createElement:h, Fragment:'fragment', useSyncExternalStore:(_fn,get)=>get(), useState:()=>[{},()=>{}],useRef:()=>({current:{}}),useEffect:fn=>fn() }
-  const service = {getSnapshot:()=>({state:{active,added:['wb-cinderzhan-dsh-media-workbench'],sessionBindings:owner}}),register:(d,p)=>{descriptor=d;Panel=p},leave:()=>{active=null},ensureSession:async args=>{
+  const service = {getSnapshot:()=>({state:{active,added:[workbench],sessionBindings:owner}}),isActive:()=>active===workbench,ownsSession:id=>owner[id]===workbench,register:(d,p)=>{descriptor=d;Panel=p},leave:()=>{active=null},ensureSession:async args=>{
     ensured.push(args)
-    if(args.sessionId && owner[args.sessionId] && owner[args.sessionId]!=='wb-cinderzhan-dsh-media-workbench')throw Error('wrong owner')
-    const id=args.sessionId||`new-${++nextId}`;owner[id]='wb-cinderzhan-dsh-media-workbench';current=id;opened.push(id);return id
+    if(args.sessionId && owner[args.sessionId] && owner[args.sessionId]!==workbench)throw Error('wrong owner')
+    const id=args.sessionId||`new-${++nextId}`;owner[id]=workbench;current=id;opened.push(id);return id
   }}
   // Harness 0.1.6 drops list.current/sessions.open; Desktop exposes currentSession/showSession
   // ('desktop') or only the mainView retention on byId ('retention').
@@ -41,7 +42,7 @@ async function fixture({ draft = '', occurrences = [], bindings = [], harness = 
 test('registers a custom market frame, immediately shows business dock, mounts one supplied conversation', async()=>{
   const f=await fixture()
   assert.equal(f.descriptor.customFrame,true)
-  assert.equal(f.descriptor.id,'wb-cinderzhan-dsh-media-workbench')
+  assert.equal(Object.hasOwn(f.descriptor,'id'),false)
   assert.equal(f.ensured.length,0,'opening/creating business-only records must not force a session')
   assert.equal(f.flatten(f.tree).filter(n=>n.type==='native-conversation').length,1)
   const root=f.flatten(f.tree).find(n=>n.type==='section')

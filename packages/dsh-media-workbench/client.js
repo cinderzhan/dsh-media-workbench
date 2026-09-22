@@ -27,7 +27,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     const frames = new Set()
     let bindings = new Map()
     let lastCurrent
-    const workbenchId = 'media-workbench'
+    const workbenchId = 'wb-cinderzhan-dsh-media-workbench'
     const service = ctx.desktopWorkbenches
     const isActive = () => service.getSnapshot().state.active === workbenchId && service.getSnapshot().state.added.includes(workbenchId)
     const owns = id => service.getSnapshot().state.sessionBindings[id] === workbenchId

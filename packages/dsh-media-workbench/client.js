@@ -124,7 +124,7 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
         ),chat)
       )
     }
-    ctx.effect(() => service.register({ version: '0.12.4', author: 'cinderzhan', title: '内容运营工作台', icon: '▦', description: '管理选题、达人、Campaign、营销日历和数据，保留四窗口布局与原生会话。', audience: '内容与自媒体运营', requirements: '业务资料可独立使用；会话使用 Desktop 模型配置。', initialization: 'empty', customFrame: true }, Panel))
+    ctx.effect(() => service.register({ repository: 'https://github.com/cinderzhan/dsh-media-workbench', version: '0.12.4', author: 'cinderzhan', title: '内容运营工作台', icon: '▦', description: '管理选题、达人、Campaign、营销日历和数据，保留四窗口布局与原生会话。', audience: '内容与自媒体运营', requirements: '业务资料可独立使用；会话使用 Desktop 模型配置。', initialization: 'empty', customFrame: true }, Panel))
   }
   function applyLegacy(ctx) {
     let current = { open: false, binding: null, error: '', busy: false }

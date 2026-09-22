@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "media-workbench",
+  "id": "wb-cinderzhan-dsh-media-workbench",
   "title": "内容运营工作台",
   "description": "选题、达人、Campaign、排期及数据管理，保留四窗口与原生会话。",
   "version": "0.12.0",

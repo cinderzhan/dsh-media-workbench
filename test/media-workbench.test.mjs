@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { applyMutation, createEmptyState, normalizePublicationUrl } from '../packages/dsh-media-workbench/model.mjs'
 import { Store } from '../packages/dsh-media-workbench/store.mjs'
+import { boundContext } from '../packages/dsh-media-workbench/runtime.mjs'
 
 function seed() {
   let state = createEmptyState()
@@ -13,6 +14,28 @@ function seed() {
 }
 
 describe('media workbench domain', () => {
+  it('reads and resumes legacy business bindings while new bindings omit Desktop identity', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'media-legacy-binding-'))
+    try {
+      const file = join(directory, 'state.json')
+      const legacy = applyMutation(createEmptyState(), { action: 'bindSession', data: { sessionId: 'old', title: 'Saved' } })
+      legacy.bindings[0].workbenchId = 'dsh-media-workbench'
+      await writeFile(file, JSON.stringify(legacy))
+      const store = new Store(file)
+      const loaded = await store.read()
+      expect(boundContext(loaded, 'old').binding.title).toBe('Saved')
+      expect(await readFile(file, 'utf8')).toBe(JSON.stringify(legacy))
+      await store.mutate({ action: 'bindSession', data: { sessionId: 'old', title: 'Resumed', scope: 'workbench' } })
+      const next = await store.mutate({ action: 'bindSession', data: { sessionId: 'new', title: 'New' } })
+      expect(boundContext(next, 'old').binding.workbenchId).toBe('dsh-media-workbench')
+      expect(boundContext(next, 'new').binding).not.toHaveProperty('workbenchId')
+      expect(() => boundContext(next, 'foreign')).toThrow('未绑定')
+      const archived = await store.mutate({ action: 'archive', entity: 'bindings', id: next.bindings.find(b => b.sessionId === 'old').id })
+      expect(() => boundContext(archived, 'old')).toThrow('未绑定')
+      expect((await new Store(file).read()).bindings).toHaveLength(2)
+    } finally { await rm(directory, { recursive: true, force: true }) }
+  })
+
   it('copies input state and enforces optimistic revisions', () => {
     const empty = createEmptyState()
     const next = applyMutation(empty, { action: 'upsert', entity: 'topics', data: { title: 'Demo' }, expectedRevision: 0 })

@@ -15,8 +15,7 @@
     "public",
     "skills",
     "cordis.patch.yml",
-    "README.md",
-    "workbench.json"
+    "README.md"
   ],
   "license": "MIT",
   "engines": {

@@ -8,7 +8,7 @@
 
 | 原有差异 | 最小适配 |
 | --- | --- |
-| 没有市场描述清单 | 增加 workbench.json，声明标识、版本、兼容、能力和数据/网络使用范围 |
+| 工作台身份曾由包内清单声明 | 删除 `workbench.json` 和注册时的自定义 id；Desktop 根据仓库确定 `cinderzhan/dsh-media-workbench`，客户端使用 Panel 收到的 `entry.id` 判断归属 |
 | 独立侧栏入口及 shell.overlay | 由 Desktop 统一固定入口、切换及关闭视图，注册 customFrame |
 | 全屏根容器可能覆盖 Desktop 会话栏 | customFrame 根节点使用正常 flex 布局填满宿主分配区域，不使用相对外层生效的 `position: absolute` / `inset` |
 | 依赖旧版 Profile 会话抢占补丁 | 接收宿主唯一会话节点，放回原有可拖动、可收起的聊天窗口 |

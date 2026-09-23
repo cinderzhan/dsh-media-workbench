@@ -32,8 +32,8 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     // for event handlers, and release it when the panel unmounts.
     let selfId = null
     const service = ctx.desktopWorkbenches
-    const isActive = () => selfId !== null && service.getSnapshot().state.active === selfId && service.getSnapshot().state.added.includes(selfId)
-    const owns = id => selfId !== null && service.getSnapshot().state.sessionBindings[id] === selfId
+    const isActive = () => service.isActive()
+    const owns = id => service.ownsSession(id)
     const change = patch => { current = { ...current, ...patch }; listeners.forEach(fn => fn()) }
     const subscribe = fn => { listeners.add(fn); return () => listeners.delete(fn) }
     const request = async (path, data) => {
@@ -136,12 +136,8 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
         ),chat)
       )
     }
-    // register() rejects any descriptor that carries an `id`: Desktop now
-    // derives the market id itself from the repository URL / install record
-    // (see dsh-desktop-workbenches development-guide.zh.md §3.5). Passing
-    // `id: workbenchId` here made every registration throw, which crashed
-    // the whole workbench frame slot (and, with it, the conversation area).
-    ctx.effect(() => service.register({ repository: 'https://github.com/cinderzhan/dsh-media-workbench', version: '0.12.4', author: 'cinderzhan', title: '内容运营工作台', icon: '▦', description: '管理选题、达人、Campaign、营销日历和数据，保留四窗口布局与原生会话。', audience: '内容与自媒体运营', requirements: '业务资料可独立使用；会话使用 Desktop 模型配置。', initialization: 'empty', customFrame: true }, Panel))
+    // Desktop derives the market id from the repository URL / install record.
+    ctx.effect(() => service.register({ repository: 'https://github.com/cinderzhan/dsh-media-workbench', version: '0.12.5', author: 'cinderzhan', title: '内容运营工作台', icon: '▦', description: '管理选题、达人、Campaign、营销日历和数据，保留四窗口布局与原生会话。', audience: '内容与自媒体运营', requirements: '业务资料可独立使用；会话使用 Desktop 模型配置。', initialization: 'empty', customFrame: true }, Panel))
   }
   function applyLegacy(ctx) {
     let current = { open: false, binding: null, error: '', busy: false }

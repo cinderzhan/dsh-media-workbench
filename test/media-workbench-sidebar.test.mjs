@@ -18,7 +18,7 @@ async function fixture({ draft = '', occurrences = [], bindings = [], harness = 
   const h = (type,props,...children) => ({type,props:props||{},children:children.flat()})
   const cleanups = []
   const React = { createElement:h, Fragment:'fragment', useSyncExternalStore:(_fn,get)=>{snapshotOfPanel=get;return get()}, useState:()=>[{},()=>{}],useRef:()=>({current:{}}),useEffect:fn=>{const cleanup=fn();if(cleanup)cleanups.push(cleanup)} }
-  const service = {getSnapshot:()=>({state:{active,added:[MARKET_ID],sessionBindings:owner}}),register:(d,p)=>{if(Object.hasOwn(d,'id'))throw Error('Invalid workbench registration');descriptor=d;Panel=p},leave:()=>{active=null},ensureSession:async args=>{
+  const service = {getSnapshot:()=>({state:{active,added:[MARKET_ID],sessionBindings:owner}}),isActive:()=>active===MARKET_ID,ownsSession:id=>owner[id]===MARKET_ID,register:(d,p)=>{if(Object.hasOwn(d,'id'))throw Error('Invalid workbench registration');descriptor=d;Panel=p},leave:()=>{active=null},ensureSession:async args=>{
     ensured.push(args)
     if(args.sessionId && owner[args.sessionId] && owner[args.sessionId]!==MARKET_ID)throw Error('wrong owner')
     const id=args.sessionId||`new-${++nextId}`;owner[id]=MARKET_ID;current=id;opened.push(id);return id
@@ -87,7 +87,7 @@ test('new scoped session does not overwrite rich or existing draft',async()=>{
 })
 
 test('hidden workbench messages cannot create sessions',async()=>{
- const f=await fixture();f.setActive('ming-life');await f.send({intent:'new'});assert.equal(f.ensured.length,0)
+ const f=await fixture();f.setActive(null);await f.send({intent:'new'});assert.equal(f.ensured.length,0)
 })
 
 test('saved session opens through host; foreign ownership never mutates binding',async()=>{
@@ -113,7 +113,7 @@ test('legacy hosts boot without market dependency and release fallback when mark
  assert.deepEqual(Array.from(module.inject),['sessions','conversation'])
  module.apply(ctx);await tick()
  assert.deepEqual(slots,['sidebar.footer.action','shell.overlay'])
- services.getSnapshot=()=>({state:{active:null,added:[],sessionBindings:{}}});services.register=()=>{registered=true}
+ services.getSnapshot=()=>({state:{active:null,added:[],sessionBindings:{}}});services.isActive=()=>false;services.ownsSession=()=>false;services.register=()=>{registered=true}
  registeredService=services;marketCallback({effect:ctx.effect,sessions:ctx.sessions,desktopWorkbenches:services});await tick()
  assert.equal(disposed,true);assert.equal(registered,true)
  const manifest=JSON.parse(readFileSync(new URL('../packages/dsh-media-workbench/package.json',import.meta.url),'utf8'))

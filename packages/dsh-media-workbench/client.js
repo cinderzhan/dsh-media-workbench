@@ -28,9 +28,8 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     let bindings = new Map()
     let lastCurrent
     // Desktop now derives the market id from the repository URL (owner/repo)
-    // instead of a plugin-declared id, and only Panel's render props carry
-    // that resolved value. Track the latest one here so isActive()/owns()
-    // work from any closure in this module, not just inside Panel's render.
+    // instead of a plugin-declared id. Use the identity supplied to our Panel
+    // for event handlers, and release it when the panel unmounts.
     let selfId = null
     const service = ctx.desktopWorkbenches
     const isActive = () => selfId !== null && service.getSnapshot().state.active === selfId && service.getSnapshot().state.added.includes(selfId)
@@ -102,13 +101,17 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
     }))
     request('state').then(() => { const id = currentSession(ctx); change({ binding: owns(id) ? bindings.get(id) || null : null }) }).catch(error => change({ error: error.message }))
     function Panel({ conversation, entry }) {
-      // Desktop resolves the market id (owner/repo) from the repository URL
-      // and only hands it back through this render prop; capture it so the
-      // isActive()/owns() closures above can compare against the real id.
-      if (entry?.id) selfId = entry.id
       const state = React.useSyncExternalStore(subscribe, () => current)
       const [chat, setChat] = React.useState(null)
       const dockRef = React.useRef(null)
+      React.useEffect(() => {
+        selfId = entry?.id || null
+        // The business state may have loaded before the first Panel mount.
+        // Reconcile now even if the selected session has not changed.
+        const id = currentSession(ctx)
+        change({ binding: owns(id) ? bindings.get(id) || null : null })
+        return () => { selfId = null }
+      }, [entry?.id])
       React.useEffect(() => {
         if (!dockRef.current) return
         let cancelled = false, dock

@@ -47,6 +47,7 @@ test('restores a selected binding loaded before the first panel mount and releas
  const binding={sessionId:'saved',scope:'workbench',title:'Saved',lastUsedAt:'2026-09-14'}
  const f=await fixture({bindings:[binding],selected:'saved'})
  assert.equal(f.getBinding()?.sessionId,'saved')
+ assert.ok(f.flatten(f.render()).some(n=>n.props?.style?.display==='contents' && f.flatten(n).some(child=>child.type==='native-conversation')))
  f.unmount()
  await f.send({intent:'new'})
  assert.equal(f.ensured.length,0)
@@ -59,6 +60,8 @@ test('registers a custom market frame, immediately shows business dock, mounts o
   assert.equal(f.descriptor.repository,'https://github.com/cinderzhan/dsh-media-workbench')
   assert.equal(f.ensured.length,0,'opening/creating business-only records must not force a session')
   assert.equal(f.flatten(f.tree).filter(n=>n.type==='native-conversation').length,1)
+  assert.ok(f.flatten(f.tree).some(n=>n.props?.role==='status' && n.children.includes('新建工作台会话，或从选题、Campaign 中选择关联会话。')))
+  assert.ok(f.flatten(f.tree).some(n=>n.props?.style?.display==='none' && f.flatten(n).some(child=>child.type==='native-conversation')))
   const root=f.flatten(f.tree).find(n=>n.type==='section')
   assert.ok(root)
   assert.equal(root.props.style.display,'flex')

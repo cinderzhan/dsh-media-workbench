@@ -132,7 +132,9 @@ window.__ModuleLoader__.load({ id: 'dsh-media-workbench', factory: require => {
               h('option',{value:'',disabled:true},'选择工作台会话'),
               [...bindings.values()].sort((a,b)=>b.lastUsedAt.localeCompare(a.lastUsedAt)).map(b=>h('option',{key:b.sessionId,value:b.sessionId},`${b.title} · ${b.sessionId.slice(-6)}`))),
             h('button',{type:'button',onClick:()=>bind({intent:'new',scope:state.binding?.scope||'workbench',entityId:state.binding?.entityId}).catch(error=>change({error:error.message})),disabled:state.busy},'新建会话')),
-          h('div',{'data-media-native-conversation':true,style:{position:'relative',flex:1,minHeight:0,minWidth:0,display:'flex',flexDirection:'column'}},conversation)
+          h('div',{'data-media-native-conversation':true,style:{position:'relative',flex:1,minHeight:0,minWidth:0,display:'flex',flexDirection:'column'}},
+            !state.binding && h('p',{role:'status',style:{padding:20,fontSize:12,lineHeight:1.8,color:'#666'}},'新建工作台会话，或从选题、Campaign 中选择关联会话。'),
+            h('div',{style:{display:state.binding?'contents':'none'}},conversation))
         ),chat)
       )
     }

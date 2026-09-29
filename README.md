@@ -1,6 +1,6 @@
 # DSH 内容运营工作台
 
-v0.12.2 兼容新旧 Desktop：提供 desktopWorkbenches 的宿主使用市场 customFrame 接口，旧宿主使用独立侧栏入口，不再因缺少市场服务阻塞启动。旧宿主未提供原生会话嵌入接口时，业务面板仍可用。详见 [规范适配说明](docs/workbench-market-adapter.md)。
+v0.12.6 在没有内容运营会话时显示空态，不再显示其他工作台保留的会话。新版 Desktop 使用市场 customFrame 接口，旧宿主使用独立侧栏入口。详见 [规范适配说明](docs/workbench-market-adapter.md)。
 v0.10.0：图表支持即时悬停、点击和键盘数值提示；新发布链接必须关联官号选题，或达人与 Campaign。历史未关联链接可在数据采集的“待绑定”中补齐。见 [UI/UX 检查报告](docs/chart-ui-ux-review.md)。
 
 用于管理官号选题、达人合作、Campaign、营销日历、内容数据及每日成果的 DSH Desktop 插件。
@@ -9,21 +9,19 @@ v0.10.0：图表支持即时悬停、点击和键盘数值提示；新发布链�
 
 ## 下载与安装
 
-在本仓库 Releases 下载 `dsh-media-workbench-0.5.2.tgz`，这是 DSH 插件包，不是 Desktop 安装程序。仓库根目录也是可安装的 DSH Bundle，可以直接作为插件源码目录使用。v0.5.2 支持直接下拉修改选题状态，选择已排期须确认日期时间；新增或调整排期自动变为已排期。选题详情可以添加发布链接或关联已有未归属发布记录，统一进入数据采集与监控。
+在 DSH Desktop 工作台市场安装或更新「内容运营工作台」。市场使用本仓库 [最新 Release](https://github.com/cinderzhan/dsh-media-workbench/releases/latest) 中的 `dsh-media-workbench.tgz`；这是工作台插件包，不是 Desktop 安装程序。仓库根目录也是可安装的 DSH Bundle。
 
 v0.2.0 将选题、达人、Campaign 和发布数据整理为紧凑表格。选题输入名称后回车创建，点击名称打开详情；发布数据可筛选官方或达人内容。数据监控支持勾选多条发布记录，以折线图或分组柱状图比较各平台的 24h、72h 和至今数据。至今取最近一次快照，缺失数据保持为空。
 
-仓库为私有。请先登录有权限的 GitHub 账号下载，DSH 不能直接匿名获取私有仓库或 Release 链接。可在终端执行：
+仓库公开，可在终端下载 Release 安装包：
 
 ```sh
-gh release download v0.5.2 --repo cinderzhan/dsh-media-workbench --pattern '*.tgz'
+gh release download v0.12.6 --repo cinderzhan/dsh-media-workbench --pattern 'dsh-media-workbench.tgz'
 mkdir dsh-media-workbench-install
-tar -xzf dsh-media-workbench-0.5.2.tgz -C dsh-media-workbench-install --strip-components=1
+tar -xzf dsh-media-workbench.tgz -C dsh-media-workbench-install --strip-components=1
 ```
 
 然后在 DSH 中让 Agent **通过插件管理流程安装并启用这个解压目录**，提供它的绝对路径。也可克隆本仓库后提供仓库根目录。安装结束按宿主提示重载；侧栏应出现「内容运营」。仅复制到 plugins 目录不会自动启用。不要直接改写正在使用的 generation。
-
-此机器也可直接使用已经准备好的源码目录：`/Users/cinder/Desktop/Coding/DSHCoding/dsh-media-workbench`。
 
 **兼容性（v0.12.2）：** 新版由 Desktop 工作台市场统一管理入口和原生会话；旧版回退到独立侧栏入口，并按宿主实际能力提供会话嵌入。无需为了打开业务面板强制等待新版市场服务。
 

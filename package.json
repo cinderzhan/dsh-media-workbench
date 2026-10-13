@@ -63,7 +63,7 @@
     "check": "npm --prefix packages/dsh-media-workbench run check",
     "test": "vitest run --exclude test/media-workbench-layout.test.mjs --exclude test/media-workbench-package.test.mjs --exclude test/media-workbench-host-bridge.test.mjs --exclude test/media-workbench-sidebar.test.mjs && node --test test/media-workbench-package.test.mjs test/media-workbench-host-bridge.test.mjs test/media-workbench-sidebar.test.mjs",
     "pack:plugin": "npm pack --pack-destination releases",
-    "test:bisheng": "node scripts/prepare-bisheng.mjs && node --test test/bisheng-hosting.node.mjs test/bisheng-import.node.mjs"
+    "test:bisheng": "node scripts/prepare-bisheng.mjs && node --test test/bisheng-hosting.node.mjs"
   },
   "dependencies": {
     "playwright-core": "^1.55.0"

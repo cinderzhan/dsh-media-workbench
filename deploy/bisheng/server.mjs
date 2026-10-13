@@ -53,28 +53,14 @@ export function createBishengServer({ env = process.env, database, collectorFact
       if (path === '/' && request.method === 'GET' && !user) return new Response('ok', { headers: { 'cache-control': 'no-store' } })
       if (!user || !tenant) return json('请从平台入口访问，缺少用户或租户身份。', 401)
       if (path === '/' && request.method === 'GET') return new Response(null, { status: 302, headers: { location: `${basePath}/api/media-workbench/app` } })
-      if (!ROUTES.includes(path) && !['/api/media-workbench/import', '/api/media-workbench/summary'].includes(path)) return json('接口不存在。', 404)
+      if (!ROUTES.includes(path)) return json('接口不存在。', 404)
       if (['/api/media-workbench/browser/open','/api/media-workbench/context'].includes(path)) return json('托管版不支持本机会话或浏览器。', 404)
       if (!['GET','POST'].includes(request.method)) return json('请求方法不支持。', 405)
       if (request.method === 'POST') {
         const origin = request.headers.get('origin')
         if (!origin || origin !== externalOrigin(request)) return json('不允许跨来源修改。', 403)
-        if (!['/api/media-workbench/mutate','/api/media-workbench/collect','/api/media-workbench/import'].includes(path)) return json('请求方法不支持。', 405)
+        if (!['/api/media-workbench/mutate','/api/media-workbench/collect'].includes(path)) return json('请求方法不支持。', 405)
       }
-      if (path === '/api/media-workbench/import') {
-        if (request.method !== 'POST') return json('请求方法不支持。', 405)
-        const body = await request.text()
-        if (Buffer.byteLength(body) > 12_000_000) return json('导入文件过大。', 413)
-        try {
-          const input = JSON.parse(body)
-          const result = await database.store(tenant).importState(input.state, input.expectedRevision)
-          return Response.json(result, { headers: { 'cache-control': 'no-store' } })
-        } catch (error) {
-          const status = ['REVISION_CONFLICT', 'IMPORT_TARGET_NOT_EMPTY'].includes(error.code) ? 409 : 400
-          return Response.json({ error: error.code ? error.message : '导入数据格式无效。', code: error.code || 'VALIDATION_ERROR' }, { status, headers: { 'cache-control': 'no-store' } })
-        }
-      }
-      if (path === '/api/media-workbench/summary') return Response.json(database.store(tenant).summary(), { headers: { 'cache-control': 'no-store' } })
       const rt = runtime(tenant)
       let response = path === '/api/media-workbench/collect' ? await withLease(tenant, () => rt.handle(request)) : await rt.handle(request)
       if (path === '/api/media-workbench/app' && response.ok) {
@@ -102,7 +88,7 @@ export function createBishengServer({ env = process.env, database, collectorFact
   timer?.unref()
   const server = createServer(async (req, res) => {
     try {
-      const limit = new URL(req.url, 'http://localhost').pathname === '/api/media-workbench/import' ? 12_000_000 : 2_000_000
+      const limit = 2_000_000
       const chunks = []; let size = 0
       for await (const chunk of req) { size += chunk.length; if (size > limit) { res.writeHead(413); res.end('Request too large'); return }; chunks.push(chunk) }
       const request = new Request(`http://localhost${req.url}`, { method: req.method, headers: req.headers, ...(chunks.length ? { body: Buffer.concat(chunks) } : {}) })

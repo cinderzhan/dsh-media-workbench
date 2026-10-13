@@ -1,0 +1,15 @@
+manifest_version: 1
+name: 内容运营工作台
+slug: media-workbench
+description: 团队共享的内容运营记录、指标跟踪与复盘工作台
+runtime: node20
+port: 8080
+egress:
+  domains:
+    - bilibili.com
+    - www.bilibili.com
+    - b23.tv
+    - xiaohongshu.com
+    - www.xiaohongshu.com
+    - xhslink.com
+    - www.xhslink.com

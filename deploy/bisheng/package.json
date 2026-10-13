@@ -1,0 +1,16 @@
+{
+  "name": "bisheng-media-workbench",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "undici": "6.21.3",
+    "libsql": "0.5.29"
+  }
+}

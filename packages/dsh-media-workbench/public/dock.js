@@ -16,23 +16,49 @@ export function windowLayout(order,minimized={},ratios={x:69,y:48,inner:42},maxi
   return {rects,x,y,inner,dividers:{x:left&&shown(d),y:top&&shown(c),inner:shown(a)&&shown(b)}}
 }
 export function createDock(root, { hosted = false, onFrame = () => {}, onChat = () => {}, onClose = () => {} } = {}) {
+  const platformHosted=document.querySelector('meta[name="media-host"]')?.content==='bisheng'
+  const basePath=document.querySelector('meta[name="media-base-path"]')?.content||''
+  const storageKey=platformHosted?'media-bisheng-dock-v1':'media-dock-v2'
   let layout = defaults(), maximized = null
   const frameKeyListeners = new Map()
-  try { const saved = JSON.parse(localStorage.getItem('media-dock-v2')); if (saved && Array.isArray(saved.order) && saved.order.length === 4 && new Set(saved.order).size === 4 && saved.order.every(k => labels[k])) layout = { ...layout, ...saved, tabs:{...layout.tabs,...saved.tabs}, minimized:{...(saved.minimized||{})} } } catch {}
+  try { const saved = JSON.parse(localStorage.getItem(storageKey)); if (saved && Array.isArray(saved.order) && saved.order.length === 4 && new Set(saved.order).size === 4 && saved.order.every(k => labels[k])) layout = { ...layout, ...saved, tabs:{...layout.tabs,...saved.tabs}, minimized:{...(saved.minimized||{})} } } catch {}
+  if(platformHosted){layout.order=layout.order.filter(k=>k!=='chat').concat('chat');layout.minimized.chat=true}
   for(const key of ['library','calendar','data'])if(!groups[key].some(([id])=>id===layout.tabs[key]))layout.tabs[key]=defaults().tabs[key]
   for (const [key,min,max] of [['x',40,80],['y',28,75],['inner',28,70]]) layout[key] = Math.max(min,Math.min(max,Number(layout[key])||defaults()[key]))
   const element = (tag,cls,text) => { const n=document.createElement(tag);n.className=cls||'';if(text)n.textContent=text;return n }
   const shell=element('div','media-dock'), top=element('div','dock-toolbar'), hint=element('span','dock-hint',''), reset=element('button','','重置布局')
   top.setAttribute('aria-label','工作台布局控制')
-  reset.type='button';reset.onclick=()=>{maximized=null;layout=defaults();apply();save();for(const key of Object.keys(frames))setTab(key,layout.tabs[key])}
+  reset.type='button';reset.onclick=()=>{maximized=null;layout=defaults();if(platformHosted)layout.minimized.chat=true;apply();save();for(const key of Object.keys(frames))setTab(key,layout.tabs[key])}
+  if(platformHosted)hint.textContent='内容运营 · 团队共享'
   top.append(hint,reset)
+  if(platformHosted){
+    const input=element('input');input.type='file';input.accept='.json,application/json';input.hidden=true;input.setAttribute('aria-label','选择工作台数据文件')
+    const upload=element('button','','导入已有数据');upload.type='button';upload.onclick=()=>input.click()
+    const status=element('span','dock-hint','');status.setAttribute('role','status');status.setAttribute('aria-live','polite')
+    input.onchange=async()=>{
+      const file=input.files?.[0];if(!file)return
+      upload.disabled=true;status.textContent='正在校验和导入…'
+      try{
+        if(file.size>12_000_000)throw new Error('数据文件超过 12 MB，请联系管理员。')
+        const snapshot=JSON.parse(await file.text())
+        const summaryResponse=await fetch(`${basePath}/api/media-workbench/summary`),summary=await summaryResponse.json()
+        if(!summaryResponse.ok)throw new Error(summary.error||'读取工作台失败')
+        const response=await fetch(`${basePath}/api/media-workbench/import`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({state:snapshot,expectedRevision:summary.revision})})
+        const result=await response.json();if(!response.ok)throw new Error(result.error||'数据导入失败')
+        status.textContent=`已导入：${result.counts.topics} 个选题 · ${result.counts.creators} 位达人 · ${result.counts.publications} 条发布 · ${result.counts.snapshots} 个快照 · ${result.counts.daily} 条每日成果`
+        for(const frame of Object.values(frames))frame.contentWindow?.postMessage({type:'media-workbench:refresh'},location.origin)
+      }catch(error){status.textContent=`未导入：${error.message}`}
+      finally{upload.disabled=false;input.value=''}
+    }
+    top.append(upload,input,status)
+  }
   if(hosted){const close=element('button','','退出工作台');close.onclick=onClose;top.append(close)}
   const board=element('div','dock-board'); shell.append(top,board);root.replaceChildren(shell)
   const panes={}, frames={}, restoreButtons={}
   const restoreBar=element('div','dock-restore');top.insertBefore(restoreBar,hint)
   for(const key of Object.keys(labels)){const b=element('button','',labels[key]);b.type='button';b.setAttribute('aria-label',`展开${labels[key]}窗口`);b.title=`展开${labels[key]}窗口`;b.onclick=()=>{maximized=null;layout.minimized[key]=false;apply();save()};restoreButtons[key]=b;restoreBar.append(b)}
   let dragging=null
-  const save=()=>{try{localStorage.setItem('media-dock-v2',JSON.stringify(layout))}catch{}}
+  const save=()=>{try{localStorage.setItem(storageKey,JSON.stringify(layout))}catch{}}
   function apply(){
     board.classList.toggle('maximized',Boolean(maximized))
     const width=Math.max(800,board.clientWidth)
@@ -49,7 +75,7 @@ export function createDock(root, { hosted = false, onFrame = () => {}, onChat = 
       const maximize=pane.querySelector('.dock-maximize'),active=maximized===key
       maximize.title=`${active?'还原':'最大化'}${labels[key]}窗口`;maximize.setAttribute('aria-label',maximize.title);maximize.setAttribute('aria-pressed',String(active))
       if(rect){pane.style.left=`calc(${rect[0]}% + 4px)`;pane.style.top=`calc(${rect[1]}% + 4px)`;pane.style.width=`calc(${rect[2]}% - 8px)`;pane.style.height=`calc(${rect[3]}% - 8px)`}
-      restoreButtons[key].hidden=!layout.minimized[key]
+      restoreButtons[key].hidden=(platformHosted&&key==='chat')||!layout.minimized[key]
     }
     restoreBar.hidden=!Object.values(layout.minimized).some(Boolean)
   }
@@ -76,14 +102,14 @@ export function createDock(root, { hosted = false, onFrame = () => {}, onChat = 
     const nav=element('div','dock-tabs');nav.setAttribute('role','tablist');nav.setAttribute('aria-label',`${labels[key]}视图`)
     for(const [tab,label] of groups[key]){const b=element('button','',label);b.type='button';b.dataset.tab=tab;b.setAttribute('role','tab');b.onclick=()=>{if(layout.tabs[key]!==tab)setTab(key,tab)};b.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const all=[...nav.children],i=all.indexOf(b),next=e.key==='Home'?0:e.key==='End'?all.length-1:(i+(e.key==='ArrowRight'?1:-1)+all.length)%all.length;setTab(key,all[next].dataset.tab);all[next].focus()};nav.append(b)}
     if(key==='chat')nav.append(element('strong','chat-title','DSH 会话'))
-    const move=element('select','dock-move');move.setAttribute('aria-label',`${labels[key]}区域换位`);for(const other of Object.keys(labels)){const o=element('option','',other===key?'换位':`与${labels[other]}换位`);o.value=other;move.append(o)}move.value=key;move.onchange=()=>swap(key,move.value)
+    const move=element('select','dock-move');move.setAttribute('aria-label',`${labels[key]}区域换位`);for(const other of Object.keys(labels).filter(k=>!platformHosted||k!=='chat')){const o=element('option','',other===key?'换位':`与${labels[other]}换位`);o.value=other;move.append(o)}move.value=key;move.onchange=()=>swap(key,move.value)
     const minimize=element('button','dock-minimize');minimize.type='button';minimize.title=`收起${labels[key]}窗口`;minimize.setAttribute('aria-label',minimize.title);minimize.innerHTML='<svg width=12 height=12 viewBox="0 0 12 12" fill=none stroke=currentColor stroke-width=1.3 aria-hidden=true><path d="M2 6h8"/></svg>';minimize.onclick=()=>{maximized=null;layout.minimized[key]=true;apply();save();restoreButtons[key].focus()}
     const maximize=element('button','dock-maximize');maximize.type='button';maximize.innerHTML='<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="2" y="2" width="8" height="8"/></svg>';maximize.onclick=()=>toggleMaximize(key)
     header.addEventListener('dblclick',e=>{if(e.target.closest('input,textarea,select,a,[contenteditable="true"],button:not([role="tab"])'))return;e.preventDefault();toggleMaximize(key)})
     header.append(handle,nav,move,maximize,minimize);pane.append(header)
     const body=element('div','dock-pane-body');pane.append(body)
     if(key!=='chat'){
-      const frame=element('iframe');frame.title=`${labels[key]}工作面板`;frame.src=`/api/media-workbench/app?pane=${key}&tab=${layout.tabs[key]}`;frames[key]=frame;frame.onload=()=>{setTab(key,layout.tabs[key]);const previous=frameKeyListeners.get(frame);previous?.removeEventListener('keydown',escapeMaximize,true);try{const doc=frame.contentDocument;doc?.addEventListener('keydown',escapeMaximize,true);frameKeyListeners.set(frame,doc)}catch{}};body.append(frame);onFrame(frame)
+      const frame=element('iframe');frame.title=`${labels[key]}工作面板`;frame.src=`${basePath}/api/media-workbench/app?pane=${key}&tab=${layout.tabs[key]}`;frames[key]=frame;frame.onload=()=>{setTab(key,layout.tabs[key]);const previous=frameKeyListeners.get(frame);previous?.removeEventListener('keydown',escapeMaximize,true);try{const doc=frame.contentDocument;doc?.addEventListener('keydown',escapeMaximize,true);frameKeyListeners.set(frame,doc)}catch{}};body.append(frame);onFrame(frame)
     }else if(hosted)onChat(body)
     else { const empty=element('div','dock-chat-empty');empty.append(element('strong','','DSH 会话'),element('p','','在 DSH Desktop 中继续对话。'),element('p','dock-muted','独立预览暂不显示会话。'));body.append(empty) }
     board.append(pane)

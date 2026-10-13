@@ -17,7 +17,7 @@ export function boundContext(state, sessionId) {
 }
 
 export function createRuntime(root, options = {}) {
-  const store = new Store(join(root, 'state.json'))
+  const store = options.store || new Store(join(root, 'state.json'))
   const collector = options.collector || new HybridCollector(join(root, 'browser'))
   const outcomes = new Map()
   const failures = new Map()

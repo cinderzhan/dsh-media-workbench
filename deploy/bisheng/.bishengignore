@@ -1,0 +1,10 @@
+.bisheng/
+node_modules/
+test/
+*.db
+*.db-shm
+*.db-wal
+*.log
+.env*
+!workbench/
+!workbench/**

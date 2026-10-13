@@ -140,6 +140,19 @@ describe('media workbench maximize interactions', () => {
   })
   afterEach(() => { dock.destroy(); dom.window.close(); vi.unstubAllGlobals() })
 
+  it('mounts BiSheng panes below the platform prefix and keeps Desktop chat unavailable after reset', () => {
+    dock.destroy()
+    document.head.innerHTML='<meta name="media-host" content="bisheng"><meta name="media-base-path" content="/apps/team-media">'
+    dock=createDock(root)
+    expect([...root.querySelectorAll('iframe')].every(f=>new URL(f.src).pathname==='/apps/team-media/api/media-workbench/app')).toBe(true)
+    expect(pane('chat').hidden).toBe(true)
+    expect([...pane('library').querySelector('select').options].map(o=>o.value)).not.toContain('chat')
+    root.querySelector('.dock-toolbar > button').click()
+    expect(pane('chat').hidden).toBe(true)
+    expect(root.querySelector('[aria-label="展开DSH 会话窗口"]').hidden).toBe(true)
+    expect(pane('data').style.width).toBe('calc(100% - 8px)')
+  })
+
   it('fills the board and restores exact geometry, minimized flags, frame and chat nodes', () => {
     const before = styles(), state = saved(), frames = [...root.querySelectorAll('iframe')], draft = root.querySelector('textarea')
     dblclick(pane('data').querySelector('.dock-pane-heading'))

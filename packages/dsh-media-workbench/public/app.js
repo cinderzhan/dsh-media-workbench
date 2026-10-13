@@ -3,6 +3,9 @@ import { saveWithRebase } from './edit-conflict.js';
 import { parseDelimited, parseCreators, creatorMapping, decodeCreatorFile } from './creator-import.js';
 import { createDock } from './dock.js';
 import { renderAnalytics } from './analytics.js';
+const platformHosted=document.querySelector('meta[name="media-host"]')?.content==='bisheng';
+const basePath=document.querySelector('meta[name="media-base-path"]')?.content||'';
+if(platformHosted)document.title='内容运营 · 团队工作台';
 if(!new URLSearchParams(location.search).has('pane')) { document.body.className='dock-preview';createDock(document.body); } else startPane();
 function startPane(){
 const $=id=>document.getElementById(id);
@@ -15,7 +18,7 @@ const allowed=pane==='library'?['topics','creators','campaigns']:pane==='calenda
 let dailyRecordsOpen=false;
 let state=null,tab=allowed.includes(new URLSearchParams(location.search).get('tab'))?new URLSearchParams(location.search).get('tab'):allowed[0],query='',statusFilter='',month=new Date(new Date().getFullYear(),new Date().getMonth(),1),busy=false,submitAction=null,drawerBaseState=null;
 const el=(tag,props={},children=[])=>{const n=document.createElement(tag);for(const [key,value]of Object.entries(props)){if(key==='class')n.className=value;else if(key==='text')n.textContent=value;else if(key==='style'){for(const part of value.split(';')){const [property,v]=part.split(':');if(property&&v)n.style.setProperty(property,v)}}else if(key.startsWith('on'))n.addEventListener(key.slice(2),value);else n.setAttribute(key,value)}for(const child of children)n.append(child);return n};
-const button=(text,action,cls='')=>el('button',{type:'button',text,class:cls,onclick:action});
+const button=(text,action,cls='')=>{const node=el('button',{type:'button',text,class:cls,onclick:action});if(platformHosted&&['会话','新建会话','历史会话','浏览器备用'].includes(text))node.hidden=true;return node};
 const active=entity=>(state?.[entity]||[]).filter(r=>!r.archivedAt);
 const lookup=(entity,id)=>state?.[entity]?.find(r=>r.id===id);
 const name=(entity,id)=>{const r=lookup(entity,id);return r?.title||r?.name||'—'};
@@ -25,7 +28,7 @@ const localDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}
 const dateValue=value=>value?(/^\d{4}-\d{2}-\d{2}$/.test(value)?value:localDate(new Date(value))):'';
 const inputDate=value=>value?`${localDate(new Date(value))}T${String(new Date(value).getHours()).padStart(2,'0')}:${String(new Date(value).getMinutes()).padStart(2,'0')}`:'';
 function notice(text,error=false){$('notice').hidden=false;$('notice').textContent=text;$('notice').className=error?'error':''}
-async function api(path,body){const response=await fetch(`/api/media-workbench/${path}`,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const data=await response.json();if(!response.ok)throw new Error(typeof data.error==='string'?data.error:data.error?.message||data.message||'操作失败，请重试');return data}
+async function api(path,body){const response=await fetch(`${basePath}/api/media-workbench/${path}`,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const data=await response.json();if(!response.ok)throw new Error(typeof data.error==='string'?data.error:data.error?.message||data.message||'操作失败，请重试');return data}
 async function reload(){state=await api('state');render()}
 async function mutate(command){if(busy)return false;busy=true;$('save').disabled=true;try{state=await saveWithRebase(command,$('drawer').open&&drawerBaseState?drawerBaseState:state,{read:()=>api('state'),write:next=>api('mutate',next)});if($('drawer').open)drawerBaseState=structuredClone(state);render();window.parent.postMessage({type:'media-workbench:changed'},location.origin);return true}catch(error){$('form-error').textContent=error.message;notice(`未保存：${error.message}`,true);if(/revision|conflict/i.test(error.message))await reload();return false}finally{busy=false;$('save').disabled=false}}
 function actionCell(...buttons){return el('div',{class:'row-actions'},buttons)}
@@ -81,7 +84,7 @@ function publicationTable(content){
  return[button(r.title,()=>edit('publications',r),'cell-title'),el('div',{},[el('span',{text:owner}),...(publicationBindingIssue(r)?[button(publicationBindingIssue(r),()=>edit('publications',r),'binding-fix')]:[])]),platforms[r.platform],link,r.publishedAt?dateText(r.publishedAt):'待确认',r.cost,s?dateText(s.capturedAt)+(s.targetAt&&Date.parse(s.capturedAt)-Date.parse(s.targetAt)>300000?' · 延迟':''):'—',s?.metrics.views??s?.metrics.reads,...['likes','comments','favorites','shares','followers','coins','danmaku'].map(key=>s?.metrics[key]),actionCell(button('录入数据',()=>snapshotDrawer(r),'small'),button('归档',()=>archive('publications',r.id),'small'))]
  })));
  if(!rows.length)content.append(el('p',{class:'table-empty',text:'没有符合条件的发布记录'}));
- content.append(el('p',{class:'table-footnote',text:'B站、小红书当前数据每 5 分钟自动刷新，24h / 72h 按实际发布时间留存。电脑需醒着且 Desktop 运行；其他平台可手动补录。'}));
+ content.append(el('p',{class:'table-footnote',text:platformHosted?'应用在线时尝试每 5 分钟更新 B站、小红书公开数据，并在发布 24h / 72h 留存快照。无法取得的数据可手动补录。':'B站、小红书当前数据每 5 分钟自动刷新，24h / 72h 按实际发布时间留存。电脑需醒着且 Desktop 运行；其他平台可手动补录。'}));
 }
 function edit(entity,record={},defaults={}){const r={...defaults,...record},f=[];const add=(key,label,type='text',options=null,required=false,help='')=>{const node=field(key,label,type,type==='datetime-local'?inputDate(r[key]):type==='date'?dateValue(r[key]):r[key],options,required,help);if(type==='datetime-local'||type==='date'&&key==='scheduledAt'){const input=node.querySelector('input');input.dataset.initialDate=input.value;input.dataset.originalDate=r[key]||''}f.push(node)};
 if(entity==='topics'&&!r.id){showDrawer('新建选题',[field('title','输入名称，回车创建','text','',null,true)],async()=>{const title=formData().title.trim();if(!title)return;if(await mutate({action:'upsert',entity:'topics',data:{...defaults,title,status:'unselected'}}))$('drawer').close()});$('f-title').focus();return}
@@ -100,6 +103,8 @@ function history(scope,entityId){const records=active('bindings').filter(r=>(!sc
 document.body.classList.add('pane-view',`pane-${pane}`);
 window.addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==window.parent)return;if(e.data?.type==='media-workbench:tab'&&allowed.includes(e.data.tab)){tab=e.data.tab;query='';statusFilter='';render()}if(e.data?.type==='media-workbench:refresh')reload().catch(error=>notice(error.message,true))});
 $('sessions').onclick=()=>history();$('new-session').onclick=()=>session();
+if(platformHosted){$('sessions').hidden=true;$('new-session').hidden=true;}
+document.querySelector('a[download]').href=`${basePath}/api/media-workbench/export`;
 function render(){if(!state)return;document.body.classList.toggle('compact-list-toolbar',['creators','campaigns','daily'].includes(tab));$('nav').replaceChildren(...Object.entries(tabs).filter(([key])=>allowed.includes(key)).map(([key,[label]])=>button(label,()=>{tab=key;query='';statusFilter='';render()})));[...$('nav').children].forEach((n,i)=>{if(Object.keys(tabs)[i]===tab)n.setAttribute('aria-current','page')});$('title').textContent=tabs[tab][0];$('description').textContent=tabs[tab][1];$('actions').replaceChildren();$('toolbar').replaceChildren();if(!['calendar','analytics'].includes(tab)){const search=el('input',{type:'search',placeholder:'搜索…','aria-label':'搜索当前面板',value:query,oninput:e=>{query=e.target.value;renderContent()}});$('toolbar').append(search);$('actions').append(button({topics:'新建选题',creators:'添加达人',campaigns:'新建 Campaign',publications:'添加发布链接',daily:'记录每日成果'}[tab],()=>edit(tab,{},tab==='daily'?{date:localDate(new Date())}:{}),'primary'))}if(tab==='creators')$('actions').prepend(button('导入表格',importCreators));if(tab==='publications')$('actions').prepend(button('浏览器备用',async e=>{e.currentTarget.disabled=true;try{const result=await api('browser/open',{});notice(result.message||'已打开独立采集浏览器，请登录需要采集的平台。')}catch(error){notice(error.message,true)}finally{e.currentTarget.disabled=false}}));renderContent()}
 function matches(r){return !query||Object.values(r).some(v=>String(v??'').toLowerCase().includes(query.toLowerCase()))}
 function renderContent(){const content=$('content');content.replaceChildren();content.classList.toggle('analytics',tab==='analytics');if(tab==='topics'){renderTopicTable(content);return}if(tab==='creators'){renderCreatorTable(content);return}if(tab==='publications'){publicationTable(content);return}if(tab==='calendar'){renderCalendar();return}if(tab==='analytics'){renderAnalytics(content,state);return}let rows=active(tab).filter(matches);if(!rows.length&&tab!=='daily'){content.append(empty(query||statusFilter?'没有符合条件的记录':'这里还没有记录',query||statusFilter?'试试其他关键词或筛选条件。':'添加第一条记录，开始建立你的内容运营工作台。',query||statusFilter?null:['添加记录',()=>edit(tab,{},tab==='daily'?{date:localDate(new Date())}:{})]));return}
